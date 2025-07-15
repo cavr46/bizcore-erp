@@ -1,0 +1,710 @@
+@using BizCore.Notifications.Models
+@using BizCore.Notifications.Services
+@using BizCore.Localization
+@using MudBlazor
+@using Microsoft.AspNetCore.SignalR.Client
+@implements IAsyncDisposable
+@inject INotificationService NotificationService
+@inject ILocalizationService LocalizationService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<MudPopover Open="_isOpen" 
+           Fixed="true" 
+           Class="notification-popover"
+           AnchorOrigin="Origin.BottomRight"
+           TransformOrigin="Origin.TopRight"
+           MaxHeight="500"
+           MaxWidth="400">
+    <ActivatorContent>
+        <MudIconButton Icon="@Icons.Material.Filled.Notifications" 
+                      Color="Color.Inherit" 
+                      OnClick="ToggleNotificationCenter"
+                      Size="Size.Medium">
+            @if (_unreadCount > 0)
+            {
+                <MudBadge Content="@_unreadCount" 
+                         Color="Color.Error" 
+                         Overlap="true"
+                         Class="notification-badge">
+                </MudBadge>
+            }
+        </MudIconButton>
+    </ActivatorContent>
+    <ChildContent>
+        <MudPaper Class="notification-center" Elevation="3">
+            <!-- Header -->
+            <MudPaper Class="notification-header pa-3" Elevation="1">
+                <div class="d-flex justify-space-between align-center">
+                    <MudText Typo="Typo.h6">
+                        @LocalizationService.GetString("Notifications.Title", "Notifications")
+                    </MudText>
+                    <div class="d-flex align-center">
+                        <MudIconButton Icon="@Icons.Material.Filled.Settings" 
+                                      Size="Size.Small" 
+                                      OnClick="OpenSettings"
+                                      Title="@LocalizationService.GetString("Notifications.Settings", "Settings")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.MarkEmailRead" 
+                                      Size="Size.Small" 
+                                      OnClick="MarkAllAsRead"
+                                      Title="@LocalizationService.GetString("Notifications.MarkAllRead", "Mark all as read")"
+                                      Disabled="@(_unreadCount == 0)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" 
+                                      Size="Size.Small" 
+                                      OnClick="CloseNotificationCenter" />
+                    </div>
+                </div>
+                
+                <!-- Filters -->
+                <div class="d-flex align-center mt-2">
+                    <MudChip Text="@LocalizationService.GetString("Common.All", "All")" 
+                            Color="@(_selectedFilter == "all" ? Color.Primary : Color.Default)"
+                            OnClick="@(() => SetFilter("all"))" 
+                            Size="Size.Small" />
+                    <MudChip Text="@LocalizationService.GetString("Notifications.Unread", "Unread")" 
+                            Color="@(_selectedFilter == "unread" ? Color.Primary : Color.Default)"
+                            OnClick="@(() => SetFilter("unread"))" 
+                            Size="Size.Small" />
+                    <MudChip Text="@LocalizationService.GetString("Notifications.Important", "Important")" 
+                            Color="@(_selectedFilter == "important" ? Color.Primary : Color.Default)"
+                            OnClick="@(() => SetFilter("important"))" 
+                            Size="Size.Small" />
+                </div>
+            </MudPaper>
+            
+            <!-- Notification List -->
+            <MudScrollToTop>
+                <MudList Class="notification-list" Style="max-height: 400px; overflow-y: auto;">
+                    @if (_loading)
+                    {
+                        <div class="d-flex justify-center pa-4">
+                            <MudProgressCircular Indeterminate="true" />
+                        </div>
+                    }
+                    else if (!_notifications.Any())
+                    {
+                        <MudListItem>
+                            <div class="d-flex flex-column align-center pa-4">
+                                <MudIcon Icon="@Icons.Material.Filled.NotificationsNone" 
+                                        Size="Size.Large" 
+                                        Color="Color.Disabled" />
+                                <MudText Typo="Typo.body2" Color="Color.Disabled" Class="mt-2">
+                                    @LocalizationService.GetString("Notifications.NoNotifications", "No notifications")
+                                </MudText>
+                            </div>
+                        </MudListItem>
+                    }
+                    else
+                    {
+                        @foreach (var notification in _notifications)
+                        {
+                            <MudListItem Class="@GetNotificationClass(notification)" 
+                                        OnClick="@(() => HandleNotificationClick(notification))">
+                                <div class="d-flex align-start pa-2">
+                                    <!-- Icon -->
+                                    <MudAvatar Size="Size.Small" 
+                                              Color="@GetNotificationColor(notification)" 
+                                              Class="mr-3">
+                                        <MudIcon Icon="@GetNotificationIcon(notification)" />
+                                    </MudAvatar>
+                                    
+                                    <!-- Content -->
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex justify-space-between align-start">
+                                            <div class="flex-grow-1">
+                                                <MudText Typo="Typo.subtitle2" 
+                                                        Class="@(notification.IsRead ? "" : "font-weight-bold")">
+                                                    @notification.Title
+                                                </MudText>
+                                                <MudText Typo="Typo.body2" 
+                                                        Color="Color.TextSecondary"
+                                                        Class="text-truncate">
+                                                    @notification.Content
+                                                </MudText>
+                                                <div class="d-flex align-center mt-1">
+                                                    <MudText Typo="Typo.caption" Color="Color.TextSecondary">
+                                                        @GetRelativeTime(notification.CreatedAt)
+                                                    </MudText>
+                                                    @if (!string.IsNullOrEmpty(notification.Category))
+                                                    {
+                                                        <MudChip Text="@notification.Category" 
+                                                                Size="Size.Small" 
+                                                                Color="Color.Default" 
+                                                                Class="ml-2" />
+                                                    }
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Actions -->
+                                            <div class="d-flex align-center">
+                                                @if (notification.IsPinned)
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Filled.PushPin" 
+                                                            Size="Size.Small" 
+                                                            Color="Color.Primary" />
+                                                }
+                                                @if (notification.RequiresAction)
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" 
+                                                            Size="Size.Small" 
+                                                            Color="Color.Warning" />
+                                                }
+                                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" 
+                                                        Size="Size.Small" 
+                                                        AnchorOrigin="Origin.BottomRight">
+                                                    <MudMenuItem OnClick="@(() => MarkAsRead(notification))"
+                                                                Disabled="@notification.IsRead">
+                                                        <div class="d-flex align-center">
+                                                            <MudIcon Icon="@Icons.Material.Filled.MarkEmailRead" Class="mr-2" />
+                                                            @LocalizationService.GetString("Notifications.MarkAsRead", "Mark as read")
+                                                        </div>
+                                                    </MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => TogglePin(notification))">
+                                                        <div class="d-flex align-center">
+                                                            <MudIcon Icon="@(notification.IsPinned ? Icons.Material.Filled.PushPin : Icons.Material.Outlined.PushPin)" Class="mr-2" />
+                                                            @LocalizationService.GetString(notification.IsPinned ? "Notifications.Unpin" : "Notifications.Pin", notification.IsPinned ? "Unpin" : "Pin")
+                                                        </div>
+                                                    </MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => ArchiveNotification(notification))">
+                                                        <div class="d-flex align-center">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Archive" Class="mr-2" />
+                                                            @LocalizationService.GetString("Notifications.Archive", "Archive")
+                                                        </div>
+                                                    </MudMenuItem>
+                                                    <MudMenuItem OnClick="@(() => DismissNotification(notification))">
+                                                        <div class="d-flex align-center">
+                                                            <MudIcon Icon="@Icons.Material.Filled.Close" Class="mr-2" />
+                                                            @LocalizationService.GetString("Notifications.Dismiss", "Dismiss")
+                                                        </div>
+                                                    </MudMenuItem>
+                                                </MudMenu>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </MudListItem>
+                        }
+                    }
+                </MudList>
+            </MudScrollToTop>
+            
+            <!-- Footer -->
+            <MudPaper Class="notification-footer pa-2" Elevation="1">
+                <div class="d-flex justify-space-between align-center">
+                    <MudButton StartIcon="@Icons.Material.Filled.Archive" 
+                              Size="Size.Small" 
+                              OnClick="OpenArchive">
+                        @LocalizationService.GetString("Notifications.ViewArchive", "View Archive")
+                    </MudButton>
+                    <MudButton StartIcon="@Icons.Material.Filled.Refresh" 
+                              Size="Size.Small" 
+                              OnClick="RefreshNotifications">
+                        @LocalizationService.GetString("Common.Refresh", "Refresh")
+                    </MudButton>
+                </div>
+            </MudPaper>
+        </MudPaper>
+    </ChildContent>
+</MudPopover>
+
+@code {
+    private bool _isOpen = false;
+    private bool _loading = true;
+    private int _unreadCount = 0;
+    private string _selectedFilter = "all";
+    private List<Notification> _notifications = new();
+    private HubConnection? _hubConnection;
+    private Timer? _refreshTimer;
+
+    [Parameter] public string UserId { get; set; } = string.Empty;
+    [Parameter] public string TenantId { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await InitializeSignalRConnection();
+        await LoadNotifications();
+        
+        // Set up periodic refresh
+        _refreshTimer = new Timer(async _ => await RefreshNotifications(), null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+    }
+
+    private async Task InitializeSignalRConnection()
+    {
+        try
+        {
+            _hubConnection = new HubConnectionBuilder()
+                .WithUrl(Navigation.ToAbsoluteUri("/hubs/notifications"))
+                .Build();
+
+            _hubConnection.On<Notification>("NotificationReceived", async (notification) =>
+            {
+                await InvokeAsync(() =>
+                {
+                    _notifications.Insert(0, notification);
+                    _unreadCount++;
+                    StateHasChanged();
+                    
+                    // Show toast notification
+                    ShowNotificationToast(notification);
+                });
+            });
+
+            _hubConnection.On<int>("UnreadCountUpdated", async (count) =>
+            {
+                await InvokeAsync(() =>
+                {
+                    _unreadCount = count;
+                    StateHasChanged();
+                });
+            });
+
+            _hubConnection.On<string>("NotificationMarkedAsRead", async (notificationId) =>
+            {
+                await InvokeAsync(() =>
+                {
+                    var notification = _notifications.FirstOrDefault(n => n.Id == notificationId);
+                    if (notification != null)
+                    {
+                        notification.IsRead = true;
+                        notification.ReadAt = DateTime.UtcNow;
+                        _unreadCount = Math.Max(0, _unreadCount - 1);
+                        StateHasChanged();
+                    }
+                });
+            });
+
+            _hubConnection.On("AllNotificationsMarkedAsRead", async () =>
+            {
+                await InvokeAsync(() =>
+                {
+                    foreach (var notification in _notifications)
+                    {
+                        notification.IsRead = true;
+                        notification.ReadAt = DateTime.UtcNow;
+                    }
+                    _unreadCount = 0;
+                    StateHasChanged();
+                });
+            });
+
+            await _hubConnection.StartAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to connect to notification hub: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task LoadNotifications()
+    {
+        try
+        {
+            _loading = true;
+            
+            var query = new NotificationQuery
+            {
+                UserId = UserId,
+                Take = 50,
+                SortBy = "CreatedAt",
+                SortDescending = true
+            };
+
+            ApplyFilter(query);
+
+            var notifications = await NotificationService.GetUserNotificationsAsync(UserId, query);
+            _notifications = notifications.ToList();
+            
+            _unreadCount = await NotificationService.GetUnreadCountAsync(UserId);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load notifications: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ApplyFilter(NotificationQuery query)
+    {
+        switch (_selectedFilter)
+        {
+            case "unread":
+                query.IsRead = false;
+                break;
+            case "important":
+                query.Priority = NotificationPriority.High;
+                break;
+            case "all":
+            default:
+                break;
+        }
+    }
+
+    private async Task SetFilter(string filter)
+    {
+        _selectedFilter = filter;
+        await LoadNotifications();
+    }
+
+    private void ToggleNotificationCenter()
+    {
+        _isOpen = !_isOpen;
+    }
+
+    private void CloseNotificationCenter()
+    {
+        _isOpen = false;
+    }
+
+    private async Task RefreshNotifications()
+    {
+        await LoadNotifications();
+    }
+
+    private async Task MarkAllAsRead()
+    {
+        try
+        {
+            if (_hubConnection?.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.SendAsync("MarkAllAsRead");
+            }
+            else
+            {
+                await NotificationService.MarkAllAsReadAsync(UserId);
+                await LoadNotifications();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to mark all as read: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task MarkAsRead(Notification notification)
+    {
+        try
+        {
+            if (_hubConnection?.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.SendAsync("MarkAsRead", notification.Id);
+            }
+            else
+            {
+                await NotificationService.MarkAsReadAsync(notification.Id);
+                notification.IsRead = true;
+                notification.ReadAt = DateTime.UtcNow;
+                _unreadCount = Math.Max(0, _unreadCount - 1);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to mark as read: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task TogglePin(Notification notification)
+    {
+        try
+        {
+            if (_hubConnection?.State == HubConnectionState.Connected)
+            {
+                if (notification.IsPinned)
+                {
+                    await _hubConnection.SendAsync("Unpin", notification.Id);
+                }
+                else
+                {
+                    await _hubConnection.SendAsync("Pin", notification.Id);
+                }
+            }
+            else
+            {
+                if (notification.IsPinned)
+                {
+                    await NotificationService.UnpinNotificationAsync(notification.Id);
+                }
+                else
+                {
+                    await NotificationService.PinNotificationAsync(notification.Id);
+                }
+                notification.IsPinned = !notification.IsPinned;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to toggle pin: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ArchiveNotification(Notification notification)
+    {
+        try
+        {
+            if (_hubConnection?.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.SendAsync("Archive", notification.Id);
+            }
+            else
+            {
+                await NotificationService.ArchiveNotificationAsync(notification.Id);
+            }
+            
+            _notifications.Remove(notification);
+            if (!notification.IsRead)
+            {
+                _unreadCount = Math.Max(0, _unreadCount - 1);
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to archive notification: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DismissNotification(Notification notification)
+    {
+        try
+        {
+            if (_hubConnection?.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.SendAsync("Dismiss", notification.Id);
+            }
+            else
+            {
+                await NotificationService.DismissNotificationAsync(notification.Id);
+            }
+            
+            _notifications.Remove(notification);
+            if (!notification.IsRead)
+            {
+                _unreadCount = Math.Max(0, _unreadCount - 1);
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to dismiss notification: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task HandleNotificationClick(Notification notification)
+    {
+        // Mark as read
+        if (!notification.IsRead)
+        {
+            await MarkAsRead(notification);
+        }
+
+        // Track click
+        if (_hubConnection?.State == HubConnectionState.Connected)
+        {
+            await _hubConnection.SendAsync("TrackClick", notification.Id);
+        }
+
+        // Navigate to action URL if available
+        if (!string.IsNullOrEmpty(notification.ActionUrl))
+        {
+            Navigation.NavigateTo(notification.ActionUrl);
+            CloseNotificationCenter();
+        }
+    }
+
+    private void OpenSettings()
+    {
+        Navigation.NavigateTo("/notifications/settings");
+        CloseNotificationCenter();
+    }
+
+    private void OpenArchive()
+    {
+        Navigation.NavigateTo("/notifications/archive");
+        CloseNotificationCenter();
+    }
+
+    private string GetNotificationClass(Notification notification)
+    {
+        var classes = new List<string> { "notification-item" };
+        
+        if (!notification.IsRead)
+        {
+            classes.Add("notification-unread");
+        }
+        
+        if (notification.IsPinned)
+        {
+            classes.Add("notification-pinned");
+        }
+        
+        if (notification.Priority == NotificationPriority.High || notification.Priority == NotificationPriority.Urgent)
+        {
+            classes.Add("notification-important");
+        }
+        
+        return string.Join(" ", classes);
+    }
+
+    private Color GetNotificationColor(Notification notification)
+    {
+        return notification.Type switch
+        {
+            NotificationType.Success => Color.Success,
+            NotificationType.Warning => Color.Warning,
+            NotificationType.Error => Color.Error,
+            NotificationType.System => Color.Info,
+            NotificationType.Security => Color.Error,
+            NotificationType.Approval => Color.Primary,
+            _ => Color.Default
+        };
+    }
+
+    private string GetNotificationIcon(Notification notification)
+    {
+        return notification.Type switch
+        {
+            NotificationType.Success => Icons.Material.Filled.CheckCircle,
+            NotificationType.Warning => Icons.Material.Filled.Warning,
+            NotificationType.Error => Icons.Material.Filled.Error,
+            NotificationType.System => Icons.Material.Filled.Settings,
+            NotificationType.Security => Icons.Material.Filled.Security,
+            NotificationType.Approval => Icons.Material.Filled.ApprovalRounded,
+            NotificationType.Reminder => Icons.Material.Filled.Schedule,
+            NotificationType.Alert => Icons.Material.Filled.NotificationImportant,
+            NotificationType.Task => Icons.Material.Filled.Task,
+            NotificationType.Message => Icons.Material.Filled.Message,
+            NotificationType.Event => Icons.Material.Filled.Event,
+            _ => Icons.Material.Filled.Info
+        };
+    }
+
+    private string GetRelativeTime(DateTime dateTime)
+    {
+        var timeSpan = DateTime.UtcNow - dateTime;
+        
+        if (timeSpan.TotalMinutes < 1)
+        {
+            return LocalizationService.GetString("Time.JustNow", "Just now");
+        }
+        else if (timeSpan.TotalMinutes < 60)
+        {
+            return $"{(int)timeSpan.TotalMinutes}m";
+        }
+        else if (timeSpan.TotalHours < 24)
+        {
+            return $"{(int)timeSpan.TotalHours}h";
+        }
+        else if (timeSpan.TotalDays < 7)
+        {
+            return $"{(int)timeSpan.TotalDays}d";
+        }
+        else
+        {
+            return dateTime.ToString("MMM dd");
+        }
+    }
+
+    private void ShowNotificationToast(Notification notification)
+    {
+        var severity = notification.Type switch
+        {
+            NotificationType.Success => Severity.Success,
+            NotificationType.Warning => Severity.Warning,
+            NotificationType.Error => Severity.Error,
+            _ => Severity.Info
+        };
+
+        Snackbar.Add(notification.Title, severity, config =>
+        {
+            config.ShowCloseIcon = true;
+            config.VisibleStateDuration = 5000;
+            config.HideTransitionDuration = 500;
+            config.ShowTransitionDuration = 500;
+            config.Action = notification.ActionUrl != null ? "View" : null;
+            config.ActionColor = Color.Primary;
+            config.Onclick = notification.ActionUrl != null ? 
+                snackbar => Navigation.NavigateTo(notification.ActionUrl) : null;
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _refreshTimer?.Dispose();
+        
+        if (_hubConnection != null)
+        {
+            await _hubConnection.DisposeAsync();
+        }
+    }
+}
+
+<style>
+    .notification-popover {
+        z-index: 1400;
+    }
+    
+    .notification-center {
+        min-width: 380px;
+        max-width: 400px;
+    }
+    
+    .notification-header {
+        border-bottom: 1px solid var(--mud-palette-divider);
+    }
+    
+    .notification-footer {
+        border-top: 1px solid var(--mud-palette-divider);
+    }
+    
+    .notification-item {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+    
+    .notification-item:hover {
+        background-color: var(--mud-palette-action-hover);
+    }
+    
+    .notification-unread {
+        background-color: var(--mud-palette-primary-lighten);
+    }
+    
+    .notification-pinned {
+        border-left: 3px solid var(--mud-palette-primary);
+    }
+    
+    .notification-important {
+        border-left: 3px solid var(--mud-palette-warning);
+    }
+    
+    .notification-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+    }
+    
+    .notification-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .notification-list .mud-list-item {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--mud-palette-divider);
+    }
+    
+    .notification-list .mud-list-item:last-child {
+        border-bottom: none;
+    }
+    
+    .text-truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+</style>
