@@ -1,0 +1,150 @@
+@using BizCore.Localization
+@using MudBlazor
+@using System.Globalization
+@inject ILocalizationService LocalizationService
+@inject IJSRuntime JSRuntime
+
+<MudMenu Icon="@Icons.Material.Filled.Language" 
+         Color="Color.Inherit" 
+         Direction="Direction.Bottom" 
+         OffsetX="true"
+         Dense="@_dense">
+    <ActivatorContent>
+        <MudButton Variant="Variant.Text" 
+                   Color="Color.Inherit" 
+                   StartIcon="@Icons.Material.Filled.Language"
+                   Size="@(_dense ? Size.Small : Size.Medium)">
+            @GetCurrentLanguageDisplay()
+        </MudButton>
+    </ActivatorContent>
+    <ChildContent>
+        <MudText Typo="Typo.subtitle2" Class="px-4 py-2">
+            @LocalizationService.GetString("Common.SelectLanguage", "Select Language")
+        </MudText>
+        <MudDivider />
+        
+        @foreach (var culture in _supportedCultures)
+        {
+            <MudMenuItem OnClick="@(() => ChangeCultureAsync(culture.Name))"
+                         Class="@(culture.Name == _currentCulture?.Name ? "mud-selected-item" : "")">
+                <div class="d-flex align-center">
+                    <MudIcon Icon="@GetFlagIcon(culture.Name)" Class="mr-3" />
+                    <div>
+                        <MudText Typo="Typo.body1">@culture.NativeName</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @culture.DisplayName
+                        </MudText>
+                    </div>
+                    @if (culture.Name == _currentCulture?.Name)
+                    {
+                        <MudSpacer />
+                        <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" />
+                    }
+                </div>
+            </MudMenuItem>
+        }
+        
+        <MudDivider />
+        <MudMenuItem OnClick="@OpenTranslationManager">
+            <div class="d-flex align-center">
+                <MudIcon Icon="@Icons.Material.Filled.Translate" Class="mr-3" />
+                <MudText>@LocalizationService.GetString("Common.ManageTranslations", "Manage Translations")</MudText>
+            </div>
+        </MudMenuItem>
+    </ChildContent>
+</MudMenu>
+
+@code {
+    [Parameter] public bool Dense { get; set; } = false;
+    [Parameter] public EventCallback<string> OnCultureChanged { get; set; }
+    
+    private bool _dense => Dense;
+    private CultureInfo _currentCulture;
+    private List<CultureInfo> _supportedCultures = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentCulture = LocalizationService.GetCurrentCulture();
+        _supportedCultures = LocalizationService.GetSupportedCultures().ToList();
+        
+        // Subscribe to culture changes
+        LocalizationService.CultureChanged += OnCultureChangedEvent;
+    }
+
+    private void OnCultureChangedEvent(object sender, CultureChangedEventArgs e)
+    {
+        _currentCulture = e.NewCulture;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ChangeCultureAsync(string cultureName)
+    {
+        try
+        {
+            await LocalizationService.SetCultureAsync(cultureName);
+            
+            // Store in local storage for persistence
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "selectedCulture", cultureName);
+            
+            // Notify parent component
+            await OnCultureChanged.InvokeAsync(cultureName);
+            
+            // Reload page to apply changes
+            await JSRuntime.InvokeVoidAsync("location.reload");
+        }
+        catch (Exception ex)
+        {
+            // Handle error - could show snackbar
+            Console.WriteLine($"Error changing culture: {ex.Message}");
+        }
+    }
+
+    private string GetCurrentLanguageDisplay()
+    {
+        if (_currentCulture == null) return "EN";
+        
+        return _currentCulture.Name switch
+        {
+            "en-US" => "EN",
+            "es-ES" => "ES",
+            "fr-FR" => "FR",
+            "de-DE" => "DE",
+            "pt-BR" => "PT",
+            "zh-CN" => "中文",
+            "ja-JP" => "日本語",
+            "ar-SA" => "العربية",
+            _ => _currentCulture.TwoLetterISOLanguageName.ToUpper()
+        };
+    }
+
+    private string GetFlagIcon(string cultureName)
+    {
+        return cultureName switch
+        {
+            "en-US" => "🇺🇸",
+            "es-ES" => "🇪🇸",
+            "fr-FR" => "🇫🇷",
+            "de-DE" => "🇩🇪",
+            "pt-BR" => "🇧🇷",
+            "zh-CN" => "🇨🇳",
+            "ja-JP" => "🇯🇵",
+            "ar-SA" => "🇸🇦",
+            _ => "🌐"
+        };
+    }
+
+    private void OpenTranslationManager()
+    {
+        // This would open a translation management dialog
+        // For now, we'll just navigate to a management page
+        // NavigationManager.NavigateTo("/admin/translations");
+    }
+
+    public void Dispose()
+    {
+        if (LocalizationService != null)
+        {
+            LocalizationService.CultureChanged -= OnCultureChangedEvent;
+        }
+    }
+}

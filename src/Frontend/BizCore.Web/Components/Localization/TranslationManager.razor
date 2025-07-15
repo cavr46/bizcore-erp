@@ -1,0 +1,377 @@
+@page "/admin/translations"
+@using BizCore.Localization
+@using MudBlazor
+@using System.Globalization
+@inject ILocalizationService LocalizationService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>@LocalizationService.GetString("TranslationManager.Title", "Translation Manager")</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="pa-4">
+    <MudText Typo="Typo.h4" Class="mb-4">
+        @LocalizationService.GetString("TranslationManager.Title", "Translation Manager")
+    </MudText>
+    
+    <MudPaper Class="pa-4 mb-4">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudSelect @bind-Value="_selectedCulture" 
+                          Label="@LocalizationService.GetString("TranslationManager.SelectCulture", "Select Culture")"
+                          Dense="true">
+                    @foreach (var culture in _supportedCultures)
+                    {
+                        <MudSelectItem Value="@culture.Name">
+                            @GetFlagIcon(culture.Name) @culture.DisplayName
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_searchText" 
+                             Label="@LocalizationService.GetString("Common.Search", "Search")"
+                             Placeholder="@LocalizationService.GetString("TranslationManager.SearchPlaceholder", "Search translations...")"
+                             Adornment="Adornment.Start"
+                             AdornmentIcon="@Icons.Material.Filled.Search"
+                             OnKeyUp="@OnSearchKeyUp"
+                             Dense="true" />
+            </MudItem>
+            
+            <MudItem xs="12" md="4">
+                <MudButton Variant="Variant.Filled" 
+                          Color="Color.Primary" 
+                          StartIcon="@Icons.Material.Filled.Add"
+                          OnClick="@OpenAddTranslationDialog">
+                    @LocalizationService.GetString("TranslationManager.AddTranslation", "Add Translation")
+                </MudButton>
+                
+                <MudButton Variant="Variant.Outlined" 
+                          Color="Color.Secondary" 
+                          StartIcon="@Icons.Material.Filled.Upload"
+                          OnClick="@OpenImportDialog"
+                          Class="ml-2">
+                    @LocalizationService.GetString("Common.Import", "Import")
+                </MudButton>
+                
+                <MudButton Variant="Variant.Outlined" 
+                          Color="Color.Secondary" 
+                          StartIcon="@Icons.Material.Filled.Download"
+                          OnClick="@ExportTranslations"
+                          Class="ml-2">
+                    @LocalizationService.GetString("Common.Export", "Export")
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+    
+    <!-- Translation Statistics -->
+    <MudPaper Class="pa-4 mb-4">
+        <MudGrid>
+            <MudItem xs="12" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Translate" Color="Color.Primary" Size="Size.Large" />
+                            <div class="ml-3">
+                                <MudText Typo="Typo.h6">@_totalTranslations</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.TextSecondary">
+                                    @LocalizationService.GetString("TranslationManager.TotalTranslations", "Total Translations")
+                                </MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <MudItem xs="12" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Large" />
+                            <div class="ml-3">
+                                <MudText Typo="Typo.h6">@_completionPercentage.ToString("F1")%</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.TextSecondary">
+                                    @LocalizationService.GetString("TranslationManager.CompletionRate", "Completion Rate")
+                                </MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <MudItem xs="12" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Large" />
+                            <div class="ml-3">
+                                <MudText Typo="Typo.h6">@_missingTranslations</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.TextSecondary">
+                                    @LocalizationService.GetString("TranslationManager.MissingTranslations", "Missing Translations")
+                                </MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            
+            <MudItem xs="12" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <div class="d-flex align-center">
+                            <MudIcon Icon="@Icons.Material.Filled.Language" Color="Color.Info" Size="Size.Large" />
+                            <div class="ml-3">
+                                <MudText Typo="Typo.h6">@_supportedCultures.Count</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.TextSecondary">
+                                    @LocalizationService.GetString("TranslationManager.SupportedLanguages", "Supported Languages")
+                                </MudText>
+                            </div>
+                        </div>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+    
+    <!-- Translations Table -->
+    <MudPaper Class="pa-4">
+        <MudTable Items="@_filteredTranslations" 
+                  Dense="@true" 
+                  Hover="@true" 
+                  Loading="@_loading"
+                  LoadingProgressColor="Color.Info"
+                  RowsPerPage="20"
+                  MultiSelection="true"
+                  @bind-SelectedItems="_selectedItems">
+            <HeaderContent>
+                <MudTh>
+                    <MudTableSortLabel SortBy="new Func<TranslationItem, object>(x => x.Key)">
+                        @LocalizationService.GetString("TranslationManager.Key", "Key")
+                    </MudTableSortLabel>
+                </MudTh>
+                <MudTh>
+                    @LocalizationService.GetString("TranslationManager.Value", "Value")
+                </MudTh>
+                <MudTh>
+                    @LocalizationService.GetString("TranslationManager.Category", "Category")
+                </MudTh>
+                <MudTh>
+                    @LocalizationService.GetString("TranslationManager.LastModified", "Last Modified")
+                </MudTh>
+                <MudTh>
+                    @LocalizationService.GetString("Common.Actions", "Actions")
+                </MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Key">
+                    <MudText Typo="Typo.body2" Class="font-weight-medium">@context.Key</MudText>
+                </MudTd>
+                <MudTd DataLabel="Value">
+                    <MudText Typo="Typo.body2" Class="text-truncate" Style="max-width: 300px;">
+                        @context.Value
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Category">
+                    <MudChip Size="Size.Small" Color="Color.Secondary">@context.Category</MudChip>
+                </MudTd>
+                <MudTd DataLabel="LastModified">
+                    <MudText Typo="Typo.caption">@context.LastModified.ToString("g")</MudText>
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                   Color="Color.Primary" 
+                                   Size="Size.Small"
+                                   OnClick="@(() => OpenEditTranslationDialog(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                   Color="Color.Error" 
+                                   Size="Size.Small"
+                                   OnClick="@(() => DeleteTranslation(context))" />
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<CultureInfo> _supportedCultures = new();
+    private string _selectedCulture = "en-US";
+    private string _searchText = string.Empty;
+    private bool _loading = false;
+    private List<TranslationItem> _translations = new();
+    private List<TranslationItem> _filteredTranslations = new();
+    private HashSet<TranslationItem> _selectedItems = new();
+    private int _totalTranslations = 0;
+    private double _completionPercentage = 0;
+    private int _missingTranslations = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _supportedCultures = LocalizationService.GetSupportedCultures().ToList();
+        await LoadTranslationsAsync();
+        await LoadStatisticsAsync();
+    }
+
+    private async Task LoadTranslationsAsync()
+    {
+        _loading = true;
+        try
+        {
+            // In a real implementation, this would load from the repository
+            _translations = GetSampleTranslations();
+            FilterTranslations();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadStatisticsAsync()
+    {
+        _totalTranslations = _translations.Count;
+        _completionPercentage = LocalizationService.GetCompletionPercentage(_selectedCulture);
+        _missingTranslations = LocalizationService.GetMissingTranslations(_selectedCulture).Count();
+    }
+
+    private void FilterTranslations()
+    {
+        _filteredTranslations = _translations.Where(t => 
+            string.IsNullOrEmpty(_searchText) || 
+            t.Key.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+            t.Value.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+            t.Category.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+        ).ToList();
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        await Task.Delay(300); // Debounce
+        FilterTranslations();
+    }
+
+    private async Task OpenAddTranslationDialog()
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("Culture", _selectedCulture);
+        parameters.Add("IsEdit", false);
+
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialog = await DialogService.ShowAsync<TranslationEditDialog>("Add Translation", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadTranslationsAsync();
+            await LoadStatisticsAsync();
+        }
+    }
+
+    private async Task OpenEditTranslationDialog(TranslationItem item)
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("Culture", _selectedCulture);
+        parameters.Add("TranslationItem", item);
+        parameters.Add("IsEdit", true);
+
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialog = await DialogService.ShowAsync<TranslationEditDialog>("Edit Translation", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadTranslationsAsync();
+            await LoadStatisticsAsync();
+        }
+    }
+
+    private async Task DeleteTranslation(TranslationItem item)
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("ContentText", $"Are you sure you want to delete translation '{item.Key}'?");
+        parameters.Add("ButtonText", "Delete");
+        parameters.Add("Color", Color.Error);
+
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Delete Translation", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LocalizationService.RemoveTranslationAsync(item.Key, _selectedCulture);
+            await LoadTranslationsAsync();
+            await LoadStatisticsAsync();
+            Snackbar.Add("Translation deleted successfully", Severity.Success);
+        }
+    }
+
+    private async Task OpenImportDialog()
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("Culture", _selectedCulture);
+
+        var options = new DialogOptions() { CloseButton = true, MaxWidth = MaxWidth.Medium };
+        var dialog = await DialogService.ShowAsync<TranslationImportDialog>("Import Translations", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadTranslationsAsync();
+            await LoadStatisticsAsync();
+        }
+    }
+
+    private async Task ExportTranslations()
+    {
+        try
+        {
+            var stream = await LocalizationService.ExportTranslationsAsync(_selectedCulture, "json");
+            
+            // In a real implementation, this would trigger file download
+            Snackbar.Add("Translations exported successfully", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string GetFlagIcon(string cultureName)
+    {
+        return cultureName switch
+        {
+            "en-US" => "🇺🇸",
+            "es-ES" => "🇪🇸",
+            "fr-FR" => "🇫🇷",
+            "de-DE" => "🇩🇪",
+            "pt-BR" => "🇧🇷",
+            "zh-CN" => "🇨🇳",
+            "ja-JP" => "🇯🇵",
+            "ar-SA" => "🇸🇦",
+            _ => "🌐"
+        };
+    }
+
+    private List<TranslationItem> GetSampleTranslations()
+    {
+        return new List<TranslationItem>
+        {
+            new() { Key = "Common.Save", Value = "Save", Category = "Common", LastModified = DateTime.Now.AddDays(-1) },
+            new() { Key = "Common.Cancel", Value = "Cancel", Category = "Common", LastModified = DateTime.Now.AddDays(-2) },
+            new() { Key = "Navigation.Dashboard", Value = "Dashboard", Category = "Navigation", LastModified = DateTime.Now.AddDays(-3) },
+            new() { Key = "Accounting.ChartOfAccounts", Value = "Chart of Accounts", Category = "Accounting", LastModified = DateTime.Now.AddDays(-4) },
+            new() { Key = "Sales.Customers", Value = "Customers", Category = "Sales", LastModified = DateTime.Now.AddDays(-5) }
+        };
+    }
+
+    private class TranslationItem
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public DateTime LastModified { get; set; }
+    }
+}

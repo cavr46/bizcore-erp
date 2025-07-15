@@ -1,0 +1,100 @@
+@using BizCore.Localization
+@using MudBlazor
+@inject ILocalizationService LocalizationService
+
+@if (ShowTooltip && !string.IsNullOrEmpty(_tooltip))
+{
+    <MudTooltip Text="@_tooltip">
+        <MudText Typo="@Typo" 
+                 Color="@Color" 
+                 Class="@Class"
+                 Style="@Style"
+                 Align="@Align">
+            @_localizedText
+        </MudText>
+    </MudTooltip>
+}
+else
+{
+    <MudText Typo="@Typo" 
+             Color="@Color" 
+             Class="@Class"
+             Style="@Style"
+             Align="@Align">
+        @_localizedText
+    </MudText>
+}
+
+@code {
+    [Parameter] public string Key { get; set; } = string.Empty;
+    [Parameter] public string Fallback { get; set; } = string.Empty;
+    [Parameter] public object[] Args { get; set; } = Array.Empty<object>();
+    [Parameter] public Typo Typo { get; set; } = Typo.body1;
+    [Parameter] public Color Color { get; set; } = Color.Default;
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public string Style { get; set; } = string.Empty;
+    [Parameter] public Align Align { get; set; } = Align.Inherit;
+    [Parameter] public bool ShowTooltip { get; set; } = false;
+    [Parameter] public string TooltipKey { get; set; } = string.Empty;
+    [Parameter] public bool ShowMissingKeyWarning { get; set; } = false;
+
+    private string _localizedText = string.Empty;
+    private string _tooltip = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await UpdateLocalizedTextAsync();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Subscribe to culture changes
+        LocalizationService.CultureChanged += OnCultureChanged;
+        await UpdateLocalizedTextAsync();
+    }
+
+    private async Task OnCultureChanged(object sender, CultureChangedEventArgs e)
+    {
+        await UpdateLocalizedTextAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UpdateLocalizedTextAsync()
+    {
+        if (string.IsNullOrEmpty(Key))
+        {
+            _localizedText = Fallback;
+            return;
+        }
+
+        try
+        {
+            _localizedText = LocalizationService.GetString(Key, Fallback, Args);
+            
+            // Handle missing translations
+            if (_localizedText == Key && ShowMissingKeyWarning)
+            {
+                _localizedText = $"⚠️ {Key}";
+            }
+
+            // Get tooltip if specified
+            if (!string.IsNullOrEmpty(TooltipKey))
+            {
+                _tooltip = LocalizationService.GetString(TooltipKey, "");
+            }
+        }
+        catch (Exception ex)
+        {
+            _localizedText = Fallback.IsNullOrEmpty() ? Key : Fallback;
+            Console.WriteLine($"Error getting localized text for key '{Key}': {ex.Message}");
+        }
+    }
+
+    public void Dispose()
+    {
+        if (LocalizationService != null)
+        {
+            LocalizationService.CultureChanged -= OnCultureChanged;
+        }
+    }
+}
