@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>bizcore</AssemblyName>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>BizCore.CLI</PackageId>
+    <Title>BizCore CLI</Title>
+    <Description>The ultimate command-line interface for BizCore ERP development</Description>
+    <Authors>BizCore Team</Authors>
+    <Company>BizCore</Company>
+    <Product>BizCore ERP</Product>
+    <Copyright>Copyright © 2024 BizCore</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/bizcore/bizcore-erp</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/bizcore/bizcore-erp</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>erp;cli;developer-tools;scaffolding;code-generation;bizcore</PackageTags>
+    <Version>1.0.0</Version>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>bizcore</ToolCommandName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+    <PackageReference Include="System.Data.SqlClient" Version="4.8.5" />
+    <PackageReference Include="System.Text.Json" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Templates\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Templates\**\*.template" />
+  </ItemGroup>
+
+</Project>
