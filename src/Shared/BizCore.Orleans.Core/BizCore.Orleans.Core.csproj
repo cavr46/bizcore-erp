@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>BizCore.Orleans.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Orleans.Server" Version="$(OrleansVersion)" />
+    <PackageReference Include="Microsoft.Orleans.Streaming" Version="$(OrleansVersion)" />
+    <PackageReference Include="Microsoft.Orleans.Persistence.AdoNet" Version="$(OrleansVersion)" />
+    <PackageReference Include="Microsoft.Orleans.Persistence.AzureStorage" Version="$(OrleansVersion)" />
+    <PackageReference Include="Microsoft.Orleans.Reminders.AdoNet" Version="$(OrleansVersion)" />
+    <PackageReference Include="Microsoft.Orleans.Clustering.AdoNet" Version="$(OrleansVersion)" />
+    <PackageReference Include="OrleansDashboard" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BizCore.Orleans.Contracts\BizCore.Orleans.Contracts.csproj" />
+    <ProjectReference Include="..\BizCore.Domain\BizCore.Domain.csproj" />
+  </ItemGroup>
+</Project>

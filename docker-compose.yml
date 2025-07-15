@@ -1,0 +1,168 @@
+version: '3.8'
+
+services:
+  # Database Services
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=BizCore123!
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - bizcore-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bizcore-network
+
+  # Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_USER=bizcore
+      - RABBITMQ_DEFAULT_PASS=bizcore123
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - bizcore-network
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/Infrastructure/BizCore.ApiGateway/Dockerfile
+    ports:
+      - "5000:80"
+      - "5001:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=password
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+    volumes:
+      - ~/.aspnet/https:/https:ro
+    depends_on:
+      - accounting-service
+      - inventory-service
+      - sales-service
+    networks:
+      - bizcore-network
+
+  # Microservices
+  accounting-service:
+    build:
+      context: .
+      dockerfile: src/Services/BizCore.Accounting.Service/Dockerfile
+    ports:
+      - "7001:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BizCoreAccounting;User=sa;Password=BizCore123!;TrustServerCertificate=true;
+      - ConnectionStrings__OrleansDatabase=Server=sqlserver;Database=BizCoreOrleans;User=sa;Password=BizCore123!;TrustServerCertificate=true;
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      - sqlserver
+      - redis
+      - rabbitmq
+    networks:
+      - bizcore-network
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: src/Services/BizCore.Inventory.Service/Dockerfile
+    ports:
+      - "7002:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BizCoreInventory;User=sa;Password=BizCore123!;TrustServerCertificate=true;
+      - ConnectionStrings__OrleansDatabase=Server=sqlserver;Database=BizCoreOrleans;User=sa;Password=BizCore123!;TrustServerCertificate=true;
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      - sqlserver
+      - redis
+      - rabbitmq
+    networks:
+      - bizcore-network
+
+  sales-service:
+    build:
+      context: .
+      dockerfile: src/Services/BizCore.Sales.Service/Dockerfile
+    ports:
+      - "7003:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=BizCoreSales;User=sa;Password=BizCore123!;TrustServerCertificate=true;
+      - ConnectionStrings__OrleansDatabase=Server=sqlserver;Database=BizCoreOrleans;User=sa;Password=BizCore123!;TrustServerCertificate=true;
+      - ConnectionStrings__Redis=redis:6379
+    depends_on:
+      - sqlserver
+      - redis
+      - rabbitmq
+    networks:
+      - bizcore-network
+
+  # Web Frontend
+  web-frontend:
+    build:
+      context: .
+      dockerfile: src/Frontend/BizCore.Web/Dockerfile
+    ports:
+      - "8000:80"
+      - "8001:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ApiSettings__BaseUrl=https://api-gateway:443
+    depends_on:
+      - api-gateway
+    networks:
+      - bizcore-network
+
+  # Monitoring & Observability
+  seq:
+    image: datalust/seq:latest
+    environment:
+      - ACCEPT_EULA=Y
+    ports:
+      - "5341:80"
+    volumes:
+      - seq_data:/data
+    networks:
+      - bizcore-network
+
+  # Development Tools
+  orleans-dashboard:
+    image: orleanscontrib/orleansdashboard:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - Orleans__ClusterId=bizcore-cluster
+      - Orleans__ServiceId=bizcore-erp
+    depends_on:
+      - accounting-service
+      - inventory-service
+      - sales-service
+    networks:
+      - bizcore-network
+
+volumes:
+  sqlserver_data:
+  redis_data:
+  rabbitmq_data:
+  seq_data:
+
+networks:
+  bizcore-network:
+    driver: bridge

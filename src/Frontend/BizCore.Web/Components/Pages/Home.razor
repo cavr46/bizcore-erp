@@ -1,0 +1,139 @@
+@page "/"
+@using MudBlazor
+
+<PageTitle>Dashboard - BizCore ERP</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
+    <MudText Typo="Typo.h3" GutterBottom="true">Dashboard</MudText>
+    <MudText Typo="Typo.body1" Class="mb-4">Welcome to BizCore ERP - Your Complete Business Management Solution</MudText>
+
+    <MudGrid>
+        <!-- Key Metrics Cards -->
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2" Class="pa-4">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="Icons.Material.Filled.AttachMoney" Color="Color.Success" Size="Size.Large" />
+                        <div class="ml-4">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Success">Total Revenue</MudText>
+                            <MudText Typo="Typo.h5">$125,450</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Success">+12.5% from last month</MudText>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2" Class="pa-4">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="Icons.Material.Filled.ShoppingCart" Color="Color.Primary" Size="Size.Large" />
+                        <div class="ml-4">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Sales Orders</MudText>
+                            <MudText Typo="Typo.h5">234</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Primary">+8.3% from last month</MudText>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2" Class="pa-4">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="Icons.Material.Filled.Inventory" Color="Color.Warning" Size="Size.Large" />
+                        <div class="ml-4">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Warning">Low Stock Items</MudText>
+                            <MudText Typo="Typo.h5">12</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Warning">Requires attention</MudText>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudCard Elevation="2" Class="pa-4">
+                <MudCardContent>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="Icons.Material.Filled.People" Color="Color.Info" Size="Size.Large" />
+                        <div class="ml-4">
+                            <MudText Typo="Typo.subtitle2" Color="Color.Info">Active Customers</MudText>
+                            <MudText Typo="Typo.h5">1,245</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Info">+15 new this month</MudText>
+                        </div>
+                    </div>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Recent Activities -->
+        <MudItem xs="12" md="8">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" GutterBottom="true">Recent Activities</MudText>
+                <MudTimeline TimelineOrientation="TimelineOrientation.Vertical" TimelinePosition="TimelinePosition.Start">
+                    <MudTimelineItem Color="Color.Success" Size="Size.Small">
+                        <ItemContent>
+                            <MudText Typo="Typo.body2" Color="Color.Success">Sales Order #SO-2024-001 created</MudText>
+                            <MudText Typo="Typo.caption">2 hours ago</MudText>
+                        </ItemContent>
+                    </MudTimelineItem>
+                    <MudTimelineItem Color="Color.Info" Size="Size.Small">
+                        <ItemContent>
+                            <MudText Typo="Typo.body2" Color="Color.Info">New customer registration: ABC Corp</MudText>
+                            <MudText Typo="Typo.caption">4 hours ago</MudText>
+                        </ItemContent>
+                    </MudTimelineItem>
+                    <MudTimelineItem Color="Color.Warning" Size="Size.Small">
+                        <ItemContent>
+                            <MudText Typo="Typo.body2" Color="Color.Warning">Low stock alert: Product XYZ</MudText>
+                            <MudText Typo="Typo.caption">6 hours ago</MudText>
+                        </ItemContent>
+                    </MudTimelineItem>
+                    <MudTimelineItem Color="Color.Primary" Size="Size.Small">
+                        <ItemContent>
+                            <MudText Typo="Typo.body2" Color="Color.Primary">Journal Entry #JE-2024-0001 posted</MudText>
+                            <MudText Typo="Typo.caption">8 hours ago</MudText>
+                        </ItemContent>
+                    </MudTimelineItem>
+                </MudTimeline>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Quick Actions -->
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" GutterBottom="true">Quick Actions</MudText>
+                <MudStack Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="Icons.Material.Filled.Add" FullWidth="true">
+                        New Sales Order
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="Icons.Material.Filled.Add" FullWidth="true">
+                        New Customer
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="Icons.Material.Filled.Add" FullWidth="true">
+                        New Product
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Info" StartIcon="Icons.Material.Filled.Book" FullWidth="true">
+                        Journal Entry
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Dark" StartIcon="Icons.Material.Filled.Assessment" FullWidth="true">
+                        View Reports
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Charts Section -->
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.h6" GutterBottom="true">Sales Trend (Last 6 Months)</MudText>
+                <div style="height: 300px; display: flex; align-items: center; justify-content: center; background: linear-gradient(45deg, #f5f5f5, #e0e0e0);">
+                    <MudText Typo="Typo.h6" Color="Color.Secondary">Chart Component Placeholder</MudText>
+                </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>

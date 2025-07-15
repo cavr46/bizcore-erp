@@ -1,0 +1,51 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <Authors>BizCore Team</Authors>
+    <Company>BizCore ERP</Company>
+    <Product>BizCore ERP</Product>
+    <Copyright>Copyright © BizCore ERP 2025</Copyright>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <OrleansVersion>8.0.0</OrleansVersion>
+    <MassTransitVersion>8.1.3</MassTransitVersion>
+    <ElsaVersion>3.0.2</ElsaVersion>
+    <MudBlazorVersion>6.11.0</MudBlazorVersion>
+    <HotChocolateVersion>13.9.0</HotChocolateVersion>
+    <EFCoreVersion>8.0.0</EFCoreVersion>
+    <FluentValidationVersion>11.8.1</FluentValidationVersion>
+    <SerilogVersion>3.1.1</SerilogVersion>
+    <AutoMapperVersion>12.0.1</AutoMapperVersion>
+    <MediatRVersion>12.2.0</MediatRVersion>
+    <PollyVersion>8.2.0</PollyVersion>
+    <FluxorVersion>5.9.1</FluxorVersion>
+    <YarpVersion>2.0.1</YarpVersion>
+    <HangfireVersion>1.8.6</HangfireVersion>
+    <QuestPDFVersion>2023.12.4</QuestPDFVersion>
+    <RedisVersion>2.7.10</RedisVersion>
+    <MongoDBVersion>2.23.1</MongoDBVersion>
+    <CosmosDBVersion>3.37.1</CosmosDBVersion>
+    <KafkaVersion>2.3.0</KafkaVersion>
+    <TestContainersVersion>3.6.0</TestContainersVersion>
+    <xUnitVersion>2.6.3</xUnitVersion>
+    <FluentAssertionsVersion>6.12.0</FluentAssertionsVersion>
+    <MoqVersion>4.20.70</MoqVersion>
+    <NBomberVersion>5.4.0</NBomberVersion>
+    <PlaywrightVersion>1.40.0</PlaywrightVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="MinVer" Version="4.3.0" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

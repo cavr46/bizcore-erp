@@ -1,0 +1,61 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+# Shared Projects
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Domain", "src\Shared\BizCore.Domain\BizCore.Domain.csproj", "{7B24BB52-BCD0-4EFB-B34C-D2C8B9E1E4B6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Application", "src\Shared\BizCore.Application\BizCore.Application.csproj", "{25F0D5EB-B9AB-4C8A-9B45-2D8C8F5D5E3C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Infrastructure", "src\Shared\BizCore.Infrastructure\BizCore.Infrastructure.csproj", "{A7B5D3E4-9C5A-4B7F-8D2E-3F1A6B8C9D0E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Orleans.Contracts", "src\Shared\BizCore.Orleans.Contracts\BizCore.Orleans.Contracts.csproj", "{F2E3B5D7-8A9C-4E6B-9C1D-0F4A7B3E8C5D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Orleans.Core", "src\Shared\BizCore.Orleans.Core\BizCore.Orleans.Core.csproj", "{C8D4E6F5-7B3A-4D9C-8E2F-1A5B9C6D0E3F}"
+EndProject
+# Microservices
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Accounting.Service", "src\Services\BizCore.Accounting.Service\BizCore.Accounting.Service.csproj", "{B5A7D3E9-8C6F-4E2B-9D1A-0C8F5B7E3A6D}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Inventory.Service", "src\Services\BizCore.Inventory.Service\BizCore.Inventory.Service.csproj", "{D8E5B6C4-7A3F-4C9E-8B2D-1F6A0D9E3C5B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Sales.Service", "src\Services\BizCore.Sales.Service\BizCore.Sales.Service.csproj", "{A3C7F5E8-9B4D-4E6A-8C1F-2D5B7A9E0F3C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Purchasing.Service", "src\Services\BizCore.Purchasing.Service\BizCore.Purchasing.Service.csproj", "{E7F8C6D3-5B2A-4F9C-8D1E-3A6B0C4E7D5F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.HumanResources.Service", "src\Services\BizCore.HumanResources.Service\BizCore.HumanResources.Service.csproj", "{B2D5E8A4-6C3F-4A7D-9E1B-0F8C5D6B3A9E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Manufacturing.Service", "src\Services\BizCore.Manufacturing.Service\BizCore.Manufacturing.Service.csproj", "{F6C8D5B3-7E4A-4B9F-8C2D-1A5E9F0D6B3C}"
+EndProject
+# Support Services
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Identity.Service", "src\Services\BizCore.Identity.Service\BizCore.Identity.Service.csproj", "{C9E7F3D5-8B6A-4D2C-9F1E-0A7B5C8D4E6F}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Notification.Service", "src\Services\BizCore.Notification.Service\BizCore.Notification.Service.csproj", "{D4A8B6E5-9C7F-4E3B-8A2D-1F0C6B5E7D9A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Document.Service", "src\Services\BizCore.Document.Service\BizCore.Document.Service.csproj", "{E8B5C7F3-6D4A-4F9E-8B1C-2D0A9E5F3C6B}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Integration.Service", "src\Services\BizCore.Integration.Service\BizCore.Integration.Service.csproj", "{A5D9E6C8-7B3F-4C2A-9E1D-0F8B5A6C3D7E}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Analytics.Service", "src\Services\BizCore.Analytics.Service\BizCore.Analytics.Service.csproj", "{F3C6B8D5-9E7A-4A8F-8C2B-1D5E0A9F6B3C}"
+EndProject
+# Infrastructure
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.ApiGateway", "src\Infrastructure\BizCore.ApiGateway\BizCore.ApiGateway.csproj", "{B7E5A3D8-6C9F-4E2D-8A1B-0F7C5B8E3D6A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Workflow", "src\Infrastructure\BizCore.Workflow\BizCore.Workflow.csproj", "{C8F9D6E4-5B7A-4C3F-9E2D-1A0B8C5D6F7E}"
+EndProject
+# Frontend
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Web", "src\Frontend\BizCore.Web\BizCore.Web.csproj", "{D5B8E7C3-9A6F-4F8E-8B2C-1D0F6A5E9C3B}"
+EndProject
+# Tests
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Tests.Unit", "src\Tests\BizCore.Tests.Unit\BizCore.Tests.Unit.csproj", "{E9A6C5F8-7D3B-4A2F-9C1E-0B8D5F7A6E3C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BizCore.Tests.Integration", "src\Tests\BizCore.Tests.Integration\BizCore.Tests.Integration.csproj", "{A4D7B8E6-5C9F-4E3A-8B2D-1F0E9C6B5D7A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,51 @@
+@using MudBlazor
+
+<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+    
+    <MudNavGroup Text="Accounting" Icon="Icons.Material.Filled.AccountBalance" Expanded="true">
+        <MudNavLink Href="/accounting/accounts" Icon="Icons.Material.Filled.AccountTree">Chart of Accounts</MudNavLink>
+        <MudNavLink Href="/accounting/journal-entries" Icon="Icons.Material.Filled.Book">Journal Entries</MudNavLink>
+        <MudNavLink Href="/accounting/reports" Icon="Icons.Material.Filled.Assessment">Reports</MudNavLink>
+    </MudNavGroup>
+    
+    <MudNavGroup Text="Inventory" Icon="Icons.Material.Filled.Inventory" Expanded="true">
+        <MudNavLink Href="/inventory/products" Icon="Icons.Material.Filled.Category">Products</MudNavLink>
+        <MudNavLink Href="/inventory/warehouses" Icon="Icons.Material.Filled.Warehouse">Warehouses</MudNavLink>
+        <MudNavLink Href="/inventory/stock-levels" Icon="Icons.Material.Filled.ViewList">Stock Levels</MudNavLink>
+        <MudNavLink Href="/inventory/transactions" Icon="Icons.Material.Filled.SwapHoriz">Transactions</MudNavLink>
+    </MudNavGroup>
+    
+    <MudNavGroup Text="Sales" Icon="Icons.Material.Filled.ShoppingCart" Expanded="true">
+        <MudNavLink Href="/sales/customers" Icon="Icons.Material.Filled.People">Customers</MudNavLink>
+        <MudNavLink Href="/sales/orders" Icon="Icons.Material.Filled.Receipt">Sales Orders</MudNavLink>
+        <MudNavLink Href="/sales/invoices" Icon="Icons.Material.Filled.Receipt">Invoices</MudNavLink>
+        <MudNavLink Href="/sales/reports" Icon="Icons.Material.Filled.TrendingUp">Reports</MudNavLink>
+    </MudNavGroup>
+    
+    <MudNavGroup Text="Purchasing" Icon="Icons.Material.Filled.ShoppingBag" Expanded="true">
+        <MudNavLink Href="/purchasing/suppliers" Icon="Icons.Material.Filled.Business">Suppliers</MudNavLink>
+        <MudNavLink Href="/purchasing/orders" Icon="Icons.Material.Filled.RequestQuote">Purchase Orders</MudNavLink>
+        <MudNavLink Href="/purchasing/receipts" Icon="Icons.Material.Filled.LocalShipping">Receipts</MudNavLink>
+    </MudNavGroup>
+    
+    <MudNavGroup Text="Human Resources" Icon="Icons.Material.Filled.People" Expanded="true">
+        <MudNavLink Href="/hr/employees" Icon="Icons.Material.Filled.Person">Employees</MudNavLink>
+        <MudNavLink Href="/hr/payroll" Icon="Icons.Material.Filled.Payment">Payroll</MudNavLink>
+        <MudNavLink Href="/hr/attendance" Icon="Icons.Material.Filled.Schedule">Attendance</MudNavLink>
+    </MudNavGroup>
+    
+    <MudNavGroup Text="Manufacturing" Icon="Icons.Material.Filled.Precision Manufacturing" Expanded="true">
+        <MudNavLink Href="/manufacturing/bom" Icon="Icons.Material.Filled.ListAlt">Bill of Materials</MudNavLink>
+        <MudNavLink Href="/manufacturing/work-orders" Icon="Icons.Material.Filled.Work">Work Orders</MudNavLink>
+        <MudNavLink Href="/manufacturing/production" Icon="Icons.Material.Filled.Factory">Production</MudNavLink>
+    </MudNavGroup>
+    
+    <MudDivider Class="my-2" />
+    
+    <MudNavGroup Text="Settings" Icon="Icons.Material.Filled.Settings" Expanded="false">
+        <MudNavLink Href="/settings/company" Icon="Icons.Material.Filled.Business">Company</MudNavLink>
+        <MudNavLink Href="/settings/users" Icon="Icons.Material.Filled.ManageAccounts">Users</MudNavLink>
+        <MudNavLink Href="/settings/system" Icon="Icons.Material.Filled.Tune">System</MudNavLink>
+    </MudNavGroup>
+</MudNavMenu>

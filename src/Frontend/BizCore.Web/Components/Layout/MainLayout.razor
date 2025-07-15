@@ -1,0 +1,34 @@
+@using MudBlazor
+@inherits LayoutView
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        <MudSpacer />
+        <MudText Typo="Typo.h5" Class="ml-3">BizCore ERP</MudText>
+        <MudSpacer />
+        <MudIconButton Icon="Icons.Material.Filled.Notifications" Color="Color.Inherit" />
+        <MudIconButton Icon="Icons.Material.Filled.AccountCircle" Color="Color.Inherit" />
+    </MudAppBar>
+    
+    <MudDrawer @bind-Open="@_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+        <NavMenu />
+    </MudDrawer>
+    
+    <MudMainContent Class="mt-16 pa-4">
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}
