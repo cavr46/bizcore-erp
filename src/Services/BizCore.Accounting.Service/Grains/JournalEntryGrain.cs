@@ -1,237 +1,253 @@
-using BizCore.Accounting.Domain.Entities;
-using BizCore.Orleans.Contracts;
-using BizCore.Orleans.Core.Base;
 using Orleans;
 using Orleans.Runtime;
-using Orleans.Streams;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using BizCore.Orleans.Contracts.Accounting;
+using BizCore.Orleans.Core.Base;
 
-namespace BizCore.Accounting.Grains;
-
-public interface IJournalEntryGrain : IGrainWithStringKey
-{
-    Task<JournalEntry?> GetEntryAsync();
-    Task<JournalEntry> CreateEntryAsync(CreateJournalEntryRequest request);
-    Task AddLineAsync(AddJournalLineRequest request);
-    Task RemoveLineAsync(int lineNumber);
-    Task<Result> ValidateAsync();
-    Task<Result> SubmitAsync();
-    Task<Result> ApproveAsync(string approvedBy);
-    Task<Result> PostAsync(string postedBy);
-    Task<Result<JournalEntry>> CreateReversalAsync(CreateReversalRequest request);
-    Task AddAttachmentAsync(AddAttachmentRequest request);
-}
+namespace BizCore.Accounting.Service.Grains;
 
 public class JournalEntryGrain : TenantGrainBase<JournalEntryState>, IJournalEntryGrain
 {
-    private IAsyncStream<JournalEntryPostedEvent>? _stream;
-
-    public JournalEntryGrain([PersistentState("journalEntry", "Default")] IPersistentState<JournalEntryState> state)
+    public JournalEntryGrain(
+        [PersistentState("journalEntry", "AccountingStore")] IPersistentState<JournalEntryState> state)
         : base(state)
     {
     }
 
-    public override async Task OnActivateAsync(CancellationToken cancellationToken)
+    public async Task<Result<Guid>> CreateAsync(CreateJournalEntryCommand command)
     {
-        await base.OnActivateAsync(cancellationToken);
-        
-        var streamProvider = this.GetStreamProvider("Default");
-        _stream = streamProvider.GetStream<JournalEntryPostedEvent>(
-            StreamId.Create("journal-entries", TenantId.ToString()));
-    }
+        if (State.Id != Guid.Empty)
+            return Result<Guid>.Failure("Journal entry already exists");
 
-    public async Task<JournalEntry?> GetEntryAsync()
-    {
-        return _state.State.Entry;
-    }
+        if (command.Lines.Count == 0)
+            return Result<Guid>.Failure("Journal entry must have at least one line");
 
-    public async Task<JournalEntry> CreateEntryAsync(CreateJournalEntryRequest request)
-    {
-        if (_state.State.Entry != null)
-            throw new InvalidOperationException("Journal entry already exists");
+        // Validate that debits equal credits
+        var totalDebits = command.Lines.Sum(l => l.DebitAmount);
+        var totalCredits = command.Lines.Sum(l => l.CreditAmount);
 
-        var entry = new JournalEntry(
-            request.TenantId,
-            request.EntryNumber,
-            request.Date,
-            request.Description,
-            request.Type);
+        if (totalDebits != totalCredits)
+            return Result<Guid>.Failure("Debits must equal credits");
 
-        _state.State.Entry = entry;
-        await SaveStateAsync();
+        // Generate entry number
+        var entryNumber = await GenerateEntryNumberAsync();
 
-        return entry;
-    }
+        State.Id = this.GetPrimaryKey();
+        State.TenantId = command.TenantId;
+        State.EntryNumber = entryNumber;
+        State.EntryDate = command.EntryDate;
+        State.Description = command.Description;
+        State.Reference = command.Reference;
+        State.Status = JournalEntryStatus.Draft;
+        State.TotalDebits = totalDebits;
+        State.TotalCredits = totalCredits;
+        State.CreatedBy = command.CreatedBy;
+        State.CreatedAt = DateTime.UtcNow;
+        State.Metadata = command.Metadata ?? new Dictionary<string, string>();
 
-    public async Task AddLineAsync(AddJournalLineRequest request)
-    {
-        if (_state.State.Entry == null)
-            throw new InvalidOperationException("Journal entry not found");
-
-        _state.State.Entry.AddLine(
-            request.AccountId,
-            request.Description,
-            request.DebitAmount,
-            request.CreditAmount,
-            request.CostCenterId,
-            request.ProjectId);
-
-        await SaveStateAsync();
-    }
-
-    public async Task RemoveLineAsync(int lineNumber)
-    {
-        if (_state.State.Entry == null)
-            throw new InvalidOperationException("Journal entry not found");
-
-        _state.State.Entry.RemoveLine(lineNumber);
-        await SaveStateAsync();
-    }
-
-    public async Task<Result> ValidateAsync()
-    {
-        if (_state.State.Entry == null)
-            return Result.Failure("Journal entry not found");
-
-        return _state.State.Entry.Validate();
-    }
-
-    public async Task<Result> SubmitAsync()
-    {
-        if (_state.State.Entry == null)
-            return Result.Failure("Journal entry not found");
-
-        var result = _state.State.Entry.Submit();
-        if (result.IsSuccess)
+        // Create lines
+        State.Lines = new List<JournalEntryLine>();
+        for (int i = 0; i < command.Lines.Count; i++)
         {
-            await SaveStateAsync();
+            var cmdLine = command.Lines[i];
+            var line = new JournalEntryLine
+            {
+                LineNumber = i + 1,
+                AccountCode = cmdLine.AccountCode,
+                Description = cmdLine.Description,
+                DebitAmount = cmdLine.DebitAmount,
+                CreditAmount = cmdLine.CreditAmount,
+                CostCenterId = cmdLine.CostCenterId,
+                ProjectId = cmdLine.ProjectId,
+                Dimensions = cmdLine.Dimensions ?? new Dictionary<string, string>()
+            };
+            State.Lines.Add(line);
         }
 
-        return result;
-    }
-
-    public async Task<Result> ApproveAsync(string approvedBy)
-    {
-        if (_state.State.Entry == null)
-            return Result.Failure("Journal entry not found");
-
-        var result = _state.State.Entry.Approve(approvedBy);
-        if (result.IsSuccess)
-        {
-            await SaveStateAsync();
-        }
-
-        return result;
+        await WriteStateAsync();
+        return Result<Guid>.Success(State.Id);
     }
 
     public async Task<Result> PostAsync(string postedBy)
     {
-        if (_state.State.Entry == null)
+        if (State.Id == Guid.Empty)
             return Result.Failure("Journal entry not found");
 
-        var result = _state.State.Entry.Post(postedBy);
-        if (result.IsSuccess)
+        if (State.Status != JournalEntryStatus.Approved)
+            return Result.Failure("Journal entry must be approved before posting");
+
+        if (State.IsReversed)
+            return Result.Failure("Cannot post a reversed journal entry");
+
+        // Post to all affected accounts
+        var grainFactory = GrainFactory;
+        var tasks = new List<Task<Result>>();
+
+        foreach (var line in State.Lines)
         {
-            await SaveStateAsync();
-            await PublishPostedEventAsync(postedBy);
+            var accountGrain = grainFactory.GetGrain<IAccountGrain>(Guid.NewGuid(), line.AccountCode);
+            
+            if (line.DebitAmount > 0)
+            {
+                var debitCommand = new PostTransactionCommand
+                {
+                    TransactionId = Guid.NewGuid(),
+                    Amount = line.DebitAmount,
+                    Type = TransactionType.Debit,
+                    TransactionDate = State.EntryDate,
+                    Description = line.Description,
+                    Reference = State.EntryNumber,
+                    PostedBy = postedBy
+                };
+                tasks.Add(accountGrain.PostTransactionAsync(debitCommand));
+            }
+
+            if (line.CreditAmount > 0)
+            {
+                var creditCommand = new PostTransactionCommand
+                {
+                    TransactionId = Guid.NewGuid(),
+                    Amount = line.CreditAmount,
+                    Type = TransactionType.Credit,
+                    TransactionDate = State.EntryDate,
+                    Description = line.Description,
+                    Reference = State.EntryNumber,
+                    PostedBy = postedBy
+                };
+                tasks.Add(accountGrain.PostTransactionAsync(creditCommand));
+            }
         }
 
-        return result;
-    }
+        var results = await Task.WhenAll(tasks);
+        var failedResults = results.Where(r => !r.IsSuccess).ToList();
 
-    public async Task<Result<JournalEntry>> CreateReversalAsync(CreateReversalRequest request)
-    {
-        if (_state.State.Entry == null)
-            return Result.Failure<JournalEntry>("Journal entry not found");
-
-        var result = _state.State.Entry.CreateReversal(
-            request.ReversalNumber,
-            request.ReversalDate,
-            request.Reason);
-
-        if (result.IsSuccess)
+        if (failedResults.Any())
         {
-            await SaveStateAsync();
+            var errors = string.Join(", ", failedResults.Select(r => r.Error));
+            return Result.Failure($"Failed to post to accounts: {errors}");
         }
 
-        return result;
+        State.Status = JournalEntryStatus.Posted;
+        State.PostedBy = postedBy;
+        State.PostedAt = DateTime.UtcNow;
+
+        await WriteStateAsync();
+        return Result.Success();
     }
 
-    public async Task AddAttachmentAsync(AddAttachmentRequest request)
+    public async Task<Result> ReverseAsync(string reversedBy, string reason)
     {
-        if (_state.State.Entry == null)
-            throw new InvalidOperationException("Journal entry not found");
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Journal entry not found");
 
-        _state.State.Entry.AddAttachment(
-            request.FileName,
-            request.FileUrl,
-            request.UploadedBy);
+        if (State.Status != JournalEntryStatus.Posted)
+            return Result.Failure("Only posted entries can be reversed");
 
-        await SaveStateAsync();
+        if (State.IsReversed)
+            return Result.Failure("Journal entry is already reversed");
+
+        // Create reversal entry
+        var reversalEntryId = Guid.NewGuid();
+        var reversalGrain = GrainFactory.GetGrain<IJournalEntryGrain>(reversalEntryId);
+
+        var reversalLines = State.Lines.Select(line => new CreateJournalEntryLineCommand
+        {
+            AccountCode = line.AccountCode,
+            Description = $"Reversal of {line.Description}",
+            DebitAmount = line.CreditAmount,  // Swap debit and credit
+            CreditAmount = line.DebitAmount,
+            CostCenterId = line.CostCenterId,
+            ProjectId = line.ProjectId,
+            Dimensions = line.Dimensions
+        }).ToList();
+
+        var reversalCommand = new CreateJournalEntryCommand
+        {
+            TenantId = State.TenantId,
+            EntryDate = DateTime.UtcNow.Date,
+            Description = $"Reversal of {State.EntryNumber}: {reason}",
+            Reference = $"REV-{State.EntryNumber}",
+            Lines = reversalLines,
+            CreatedBy = reversedBy
+        };
+
+        var createResult = await reversalGrain.CreateAsync(reversalCommand);
+        if (!createResult.IsSuccess)
+            return Result.Failure($"Failed to create reversal entry: {createResult.Error}");
+
+        // Auto-approve and post the reversal
+        var approveResult = await reversalGrain.ApproveAsync(reversedBy);
+        if (!approveResult.IsSuccess)
+            return Result.Failure($"Failed to approve reversal entry: {approveResult.Error}");
+
+        var postResult = await reversalGrain.PostAsync(reversedBy);
+        if (!postResult.IsSuccess)
+            return Result.Failure($"Failed to post reversal entry: {postResult.Error}");
+
+        // Mark this entry as reversed
+        State.Status = JournalEntryStatus.Reversed;
+        State.IsReversed = true;
+        State.ReversalEntryId = reversalEntryId;
+        State.ReversalReason = reason;
+
+        await WriteStateAsync();
+        return Result.Success();
     }
 
-    private async Task PublishPostedEventAsync(string postedBy)
+    public async Task<Result> ApproveAsync(string approvedBy)
     {
-        if (_stream == null || _state.State.Entry == null)
-            return;
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Journal entry not found");
 
-        var eventData = new JournalEntryPostedEvent(
-            _state.State.Entry.Id,
-            TenantId,
-            _state.State.Entry.EntryNumber,
-            _state.State.Entry.Date,
-            postedBy,
-            _state.State.Entry.Lines.Select(l => new PostedLineEvent(
-                l.AccountId,
-                l.DebitAmount?.Amount ?? 0,
-                l.CreditAmount?.Amount ?? 0,
-                l.CostCenterId,
-                l.ProjectId)).ToList());
+        if (State.Status != JournalEntryStatus.Draft && State.Status != JournalEntryStatus.PendingApproval)
+            return Result.Failure("Journal entry is not in a state that can be approved");
 
-        await _stream.OnNextAsync(eventData);
+        if (State.IsReversed)
+            return Result.Failure("Cannot approve a reversed journal entry");
+
+        State.Status = JournalEntryStatus.Approved;
+        State.ApprovedBy = approvedBy;
+        State.ApprovedAt = DateTime.UtcNow;
+
+        await WriteStateAsync();
+        return Result.Success();
+    }
+
+    public async Task<Result> RejectAsync(string rejectedBy, string reason)
+    {
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Journal entry not found");
+
+        if (State.Status != JournalEntryStatus.PendingApproval)
+            return Result.Failure("Journal entry is not pending approval");
+
+        State.Status = JournalEntryStatus.Rejected;
+        State.Metadata["RejectedBy"] = rejectedBy;
+        State.Metadata["RejectionReason"] = reason;
+        State.Metadata["RejectedAt"] = DateTime.UtcNow.ToString("O");
+
+        await WriteStateAsync();
+        return Result.Success();
+    }
+
+    public Task<Result<JournalEntryState>> GetDetailsAsync()
+    {
+        if (State.Id == Guid.Empty)
+            return Task.FromResult(Result<JournalEntryState>.Failure("Journal entry not found"));
+
+        return Task.FromResult(Result<JournalEntryState>.Success(State));
+    }
+
+    private async Task<string> GenerateEntryNumberAsync()
+    {
+        // Simple numbering scheme - in production, this would use a sequence generator
+        var date = DateTime.UtcNow;
+        var datePrefix = date.ToString("yyyyMM");
+        var random = new Random();
+        var sequence = random.Next(1000, 9999);
+        return $"JE-{datePrefix}-{sequence}";
     }
 }
-
-public class JournalEntryState
-{
-    public JournalEntry? Entry { get; set; }
-}
-
-public record CreateJournalEntryRequest(
-    Guid TenantId,
-    string EntryNumber,
-    DateTime Date,
-    string Description,
-    EntryType Type);
-
-public record AddJournalLineRequest(
-    Guid AccountId,
-    string Description,
-    Domain.Common.Money? DebitAmount,
-    Domain.Common.Money? CreditAmount,
-    Guid? CostCenterId,
-    Guid? ProjectId);
-
-public record CreateReversalRequest(
-    string ReversalNumber,
-    DateTime ReversalDate,
-    string Reason);
-
-public record AddAttachmentRequest(
-    string FileName,
-    string FileUrl,
-    string UploadedBy);
-
-public record JournalEntryPostedEvent(
-    Guid EntryId,
-    Guid TenantId,
-    string EntryNumber,
-    DateTime Date,
-    string PostedBy,
-    List<PostedLineEvent> Lines);
-
-public record PostedLineEvent(
-    Guid AccountId,
-    decimal DebitAmount,
-    decimal CreditAmount,
-    Guid? CostCenterId,
-    Guid? ProjectId);

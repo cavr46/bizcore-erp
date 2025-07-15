@@ -1,452 +1,221 @@
-using BizCore.Purchasing.Domain.Entities;
-using BizCore.Orleans.Core;
-using Microsoft.Extensions.Logging;
+using Orleans;
+using Orleans.Runtime;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using BizCore.Orleans.Contracts.Purchasing;
+using BizCore.Orleans.Core.Base;
 
-namespace BizCore.Purchasing.Grains;
-
-public interface ISupplierGrain : IGrainWithGuidKey
-{
-    Task<Supplier> CreateSupplierAsync(CreateSupplierRequest request);
-    Task<Supplier> GetSupplierAsync();
-    Task UpdateBasicInfoAsync(UpdateSupplierBasicInfoRequest request);
-    Task SetCreditLimitAsync(decimal creditLimit);
-    Task UpdateBalanceAsync(decimal amount);
-    Task SetPaymentTermsAsync(int days);
-    Task AssignBuyerAsync(Guid buyerId);
-    Task SetPreferredAsync(bool isPreferred);
-    Task UpdateRatingAsync(SupplierRating rating);
-    Task AddAddressAsync(AddSupplierAddressRequest request);
-    Task AddContactAsync(AddSupplierContactRequest request);
-    Task AddCertificationAsync(AddSupplierCertificationRequest request);
-    Task UpdatePerformanceMetricAsync(UpdatePerformanceMetricRequest request);
-    Task RecordOrderAsync(DateTime orderDate, decimal orderAmount);
-    Task RecordPaymentAsync(DateTime paymentDate, decimal paymentAmount);
-    Task ActivateAsync();
-    Task DeactivateAsync();
-    Task BlockAsync();
-    Task SuspendAsync();
-    Task<bool> CanPlaceOrderAsync(decimal orderAmount);
-    Task<decimal> GetAveragePerformanceScoreAsync();
-    Task<SupplierPerformanceReport> GetPerformanceReportAsync();
-}
+namespace BizCore.Purchasing.Service.Grains;
 
 public class SupplierGrain : TenantGrainBase<SupplierState>, ISupplierGrain
 {
-    private readonly ILogger<SupplierGrain> _logger;
-
-    public SupplierGrain(ILogger<SupplierGrain> logger)
+    public SupplierGrain(
+        [PersistentState("supplier", "PurchasingStore")] IPersistentState<SupplierState> state)
+        : base(state)
     {
-        _logger = logger;
     }
 
-    public async Task<Supplier> CreateSupplierAsync(CreateSupplierRequest request)
+    public async Task<Result<Guid>> CreateAsync(CreateSupplierCommand command)
     {
-        if (_state.State.Supplier != null)
-            throw new InvalidOperationException("Supplier already exists");
+        if (State.Id != Guid.Empty)
+            return Result<Guid>.Failure("Supplier already exists");
 
-        var supplier = new Supplier(
-            GetTenantId(),
-            request.SupplierNumber,
-            request.Name,
-            request.Type,
-            request.Currency);
+        if (string.IsNullOrWhiteSpace(command.Name))
+            return Result<Guid>.Failure("Supplier name is required");
 
-        if (!string.IsNullOrEmpty(request.LegalName))
-            supplier.UpdateBasicInfo(request.Name, request.LegalName, request.TaxId, request.Email, request.Phone, request.Website);
+        if (string.IsNullOrWhiteSpace(command.SupplierCode))
+            return Result<Guid>.Failure("Supplier code is required");
 
-        if (request.CreditLimit.HasValue)
-            supplier.SetCreditLimit(request.CreditLimit.Value);
+        State.Id = this.GetPrimaryKey();
+        State.TenantId = command.TenantId;
+        State.SupplierCode = command.SupplierCode;
+        State.Name = command.Name;
+        State.LegalName = command.LegalName;
+        State.TaxId = command.TaxId;
+        State.Type = command.Type;
+        State.Website = command.Website;
+        State.Phone = command.Phone;
+        State.Email = command.Email;
+        State.Address = command.Address;
+        State.PaymentTerms = command.PaymentTerms;
+        State.Rating = 0;
+        State.CurrencyCode = command.CurrencyCode;
+        State.IsActive = true;
+        State.IsApproved = false;
+        State.Contacts = new List<SupplierContact>();
+        State.Documents = new List<SupplierDocument>();
+        State.CreatedAt = DateTime.UtcNow;
+        State.CustomFields = new Dictionary<string, string>();
 
-        if (request.PaymentTerms.HasValue)
-            supplier.SetPaymentTerms(request.PaymentTerms.Value);
-
-        _state.State.Supplier = supplier;
-        await SaveStateAsync();
-
-        _logger.LogInformation("Supplier {SupplierNumber} created for tenant {TenantId}", 
-            request.SupplierNumber, GetTenantId());
-
-        return supplier;
+        await WriteStateAsync();
+        return Result<Guid>.Success(State.Id);
     }
 
-    public Task<Supplier> GetSupplierAsync()
+    public async Task<Result> UpdateAsync(UpdateSupplierCommand command)
     {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Supplier not found");
 
-        return Task.FromResult(_state.State.Supplier);
-    }
+        if (!string.IsNullOrWhiteSpace(command.Name))
+            State.Name = command.Name;
 
-    public async Task UpdateBasicInfoAsync(UpdateSupplierBasicInfoRequest request)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
+        if (!string.IsNullOrWhiteSpace(command.LegalName))
+            State.LegalName = command.LegalName;
 
-        _state.State.Supplier.UpdateBasicInfo(
-            request.Name,
-            request.LegalName,
-            request.TaxId,
-            request.Email,
-            request.Phone,
-            request.Website);
+        if (command.Website != null)
+            State.Website = command.Website;
 
-        await SaveStateAsync();
+        if (command.Phone != null)
+            State.Phone = command.Phone;
 
-        _logger.LogInformation("Supplier {SupplierNumber} basic info updated for tenant {TenantId}", 
-            _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
+        if (command.Email != null)
+            State.Email = command.Email;
 
-    public async Task SetCreditLimitAsync(decimal creditLimit)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
+        if (command.Address != null)
+            State.Address = command.Address;
 
-        _state.State.Supplier.SetCreditLimit(creditLimit);
-        await SaveStateAsync();
+        if (command.PaymentTerms != null)
+            State.PaymentTerms = command.PaymentTerms;
 
-        _logger.LogInformation("Credit limit set to {CreditLimit} for supplier {SupplierNumber} for tenant {TenantId}", 
-            creditLimit, _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task UpdateBalanceAsync(decimal amount)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.UpdateBalance(amount);
-        await SaveStateAsync();
-
-        _logger.LogInformation("Balance updated by {Amount} for supplier {SupplierNumber} for tenant {TenantId}", 
-            amount, _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task SetPaymentTermsAsync(int days)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.SetPaymentTerms(days);
-        await SaveStateAsync();
-
-        _logger.LogInformation("Payment terms set to {Days} days for supplier {SupplierNumber} for tenant {TenantId}", 
-            days, _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task AssignBuyerAsync(Guid buyerId)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.AssignBuyer(buyerId);
-        await SaveStateAsync();
-
-        _logger.LogInformation("Buyer {BuyerId} assigned to supplier {SupplierNumber} for tenant {TenantId}", 
-            buyerId, _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task SetPreferredAsync(bool isPreferred)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.SetPreferred(isPreferred);
-        await SaveStateAsync();
-
-        _logger.LogInformation("Preferred status set to {IsPreferred} for supplier {SupplierNumber} for tenant {TenantId}", 
-            isPreferred, _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task UpdateRatingAsync(SupplierRating rating)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.UpdateRating(rating);
-        await SaveStateAsync();
-
-        _logger.LogInformation("Rating updated to {Rating} for supplier {SupplierNumber} for tenant {TenantId}", 
-            rating, _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task AddAddressAsync(AddSupplierAddressRequest request)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.AddAddress(
-            request.Type,
-            request.Street,
-            request.City,
-            request.State,
-            request.PostalCode,
-            request.Country);
-
-        await SaveStateAsync();
-
-        _logger.LogInformation("Address added to supplier {SupplierNumber} for tenant {TenantId}", 
-            _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task AddContactAsync(AddSupplierContactRequest request)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.AddContact(
-            request.Name,
-            request.Title,
-            request.Email,
-            request.Phone,
-            request.IsPrimary);
-
-        await SaveStateAsync();
-
-        _logger.LogInformation("Contact {ContactName} added to supplier {SupplierNumber} for tenant {TenantId}", 
-            request.Name, _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task AddCertificationAsync(AddSupplierCertificationRequest request)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.AddCertification(
-            request.Name,
-            request.IssuedBy,
-            request.IssuedDate,
-            request.ExpiryDate);
-
-        await SaveStateAsync();
-
-        _logger.LogInformation("Certification {CertificationName} added to supplier {SupplierNumber} for tenant {TenantId}", 
-            request.Name, _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task UpdatePerformanceMetricAsync(UpdatePerformanceMetricRequest request)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.UpdatePerformanceMetric(
-            request.MetricName,
-            request.Value,
-            request.PeriodStart,
-            request.PeriodEnd);
-
-        await SaveStateAsync();
-
-        _logger.LogInformation("Performance metric {MetricName} updated for supplier {SupplierNumber} for tenant {TenantId}", 
-            request.MetricName, _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task RecordOrderAsync(DateTime orderDate, decimal orderAmount)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.RecordOrder(orderDate, orderAmount);
-        await SaveStateAsync();
-
-        _logger.LogInformation("Order recorded for supplier {SupplierNumber} for tenant {TenantId}: {OrderAmount} on {OrderDate}", 
-            _state.State.Supplier.SupplierNumber, GetTenantId(), orderAmount, orderDate);
-    }
-
-    public async Task RecordPaymentAsync(DateTime paymentDate, decimal paymentAmount)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.RecordPayment(paymentDate, paymentAmount);
-        await SaveStateAsync();
-
-        _logger.LogInformation("Payment recorded for supplier {SupplierNumber} for tenant {TenantId}: {PaymentAmount} on {PaymentDate}", 
-            _state.State.Supplier.SupplierNumber, GetTenantId(), paymentAmount, paymentDate);
-    }
-
-    public async Task ActivateAsync()
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.Activate();
-        await SaveStateAsync();
-
-        _logger.LogInformation("Supplier {SupplierNumber} activated for tenant {TenantId}", 
-            _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task DeactivateAsync()
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.Deactivate();
-        await SaveStateAsync();
-
-        _logger.LogInformation("Supplier {SupplierNumber} deactivated for tenant {TenantId}", 
-            _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task BlockAsync()
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.Block();
-        await SaveStateAsync();
-
-        _logger.LogInformation("Supplier {SupplierNumber} blocked for tenant {TenantId}", 
-            _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public async Task SuspendAsync()
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        _state.State.Supplier.Suspend();
-        await SaveStateAsync();
-
-        _logger.LogInformation("Supplier {SupplierNumber} suspended for tenant {TenantId}", 
-            _state.State.Supplier.SupplierNumber, GetTenantId());
-    }
-
-    public Task<bool> CanPlaceOrderAsync(decimal orderAmount)
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        var canPlace = _state.State.Supplier.CanPlaceOrder(orderAmount);
-        return Task.FromResult(canPlace);
-    }
-
-    public Task<decimal> GetAveragePerformanceScoreAsync()
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        var score = _state.State.Supplier.GetAveragePerformanceScore();
-        return Task.FromResult(score);
-    }
-
-    public Task<SupplierPerformanceReport> GetPerformanceReportAsync()
-    {
-        if (_state.State.Supplier == null)
-            throw new InvalidOperationException("Supplier not found");
-
-        var supplier = _state.State.Supplier;
-        var report = new SupplierPerformanceReport
+        if (command.CustomFields != null)
         {
-            SupplierId = supplier.Id,
-            SupplierNumber = supplier.SupplierNumber,
-            Name = supplier.Name,
-            Rating = supplier.Rating,
-            AveragePerformanceScore = supplier.GetAveragePerformanceScore(),
-            CurrentBalance = supplier.CurrentBalance,
-            CreditLimit = supplier.CreditLimit,
-            PaymentTerms = supplier.PaymentTerms,
-            LastOrderDate = supplier.LastOrderDate,
-            LastPaymentDate = supplier.LastPaymentDate,
-            IsPreferred = supplier.IsPreferred,
-            Status = supplier.Status,
-            CertificationCount = supplier.Certifications.Count,
-            ActiveCertifications = supplier.Certifications.Count(c => c.IsActive && !c.IsExpired()),
-            ExpiringSoonCertifications = supplier.Certifications.Count(c => c.IsExpiringSoon()),
-            PerformanceMetrics = supplier.PerformanceMetrics.Select(pm => new PerformanceMetricSummary
+            foreach (var field in command.CustomFields)
             {
-                MetricName = pm.MetricName,
-                Value = pm.Value,
-                PeriodStart = pm.PeriodStart,
-                PeriodEnd = pm.PeriodEnd,
-                RecordedAt = pm.RecordedAt
-            }).ToList()
+                State.CustomFields[field.Key] = field.Value;
+            }
+        }
+
+        await WriteStateAsync();
+        return Result.Success();
+    }
+
+    public async Task<Result> SetActiveStatusAsync(bool isActive)
+    {
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Supplier not found");
+
+        State.IsActive = isActive;
+
+        await WriteStateAsync();
+        return Result.Success();
+    }
+
+    public async Task<Result> AddContactAsync(SupplierContact contact)
+    {
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Supplier not found");
+
+        if (string.IsNullOrWhiteSpace(contact.Name))
+            return Result.Failure("Contact name is required");
+
+        // If this is being set as primary, unset other primary contacts
+        if (contact.IsPrimary)
+        {
+            foreach (var existingContact in State.Contacts)
+            {
+                existingContact.IsPrimary = false;
+            }
+        }
+
+        contact.Id = Guid.NewGuid();
+        State.Contacts.Add(contact);
+
+        await WriteStateAsync();
+        return Result.Success();
+    }
+
+    public async Task<Result> RemoveContactAsync(Guid contactId)
+    {
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Supplier not found");
+
+        var contact = State.Contacts.FirstOrDefault(c => c.Id == contactId);
+        if (contact == null)
+            return Result.Failure("Contact not found");
+
+        State.Contacts.Remove(contact);
+
+        await WriteStateAsync();
+        return Result.Success();
+    }
+
+    public async Task<Result> UpdateRatingAsync(decimal rating, string reviewedBy)
+    {
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Supplier not found");
+
+        if (rating < 0 || rating > 5)
+            return Result.Failure("Rating must be between 0 and 5");
+
+        State.Rating = rating;
+        State.CustomFields["RatingReviewedBy"] = reviewedBy;
+        State.CustomFields["RatingReviewedAt"] = DateTime.UtcNow.ToString("O");
+
+        await WriteStateAsync();
+        return Result.Success();
+    }
+
+    public Task<Result<SupplierPerformance>> GetPerformanceAsync()
+    {
+        if (State.Id == Guid.Empty)
+            return Task.FromResult(Result<SupplierPerformance>.Failure("Supplier not found"));
+
+        // In a real implementation, this would calculate performance metrics
+        // from actual purchase orders and receipts
+        var performance = new SupplierPerformance
+        {
+            AverageRating = State.Rating,
+            OnTimeDeliveryRate = 0.95m, // 95% on-time delivery
+            QualityRating = 4.2m,
+            TotalOrders = 0,
+            TotalSpent = 0,
+            DaysPaymentTerm = int.TryParse(State.PaymentTerms.Replace("Net", ""), out var days) ? days : 30,
+            LastOrderDate = State.LastTransactionDate
         };
 
-        return Task.FromResult(report);
+        return Task.FromResult(Result<SupplierPerformance>.Success(performance));
     }
-}
 
-[GenerateSerializer]
-public class SupplierState
-{
-    [Id(0)]
-    public Supplier? Supplier { get; set; }
-}
+    public async Task<Result> SetPaymentTermsAsync(string paymentTerms)
+    {
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Supplier not found");
 
-// Request DTOs
-public record CreateSupplierRequest(
-    string SupplierNumber,
-    string Name,
-    SupplierType Type,
-    string Currency,
-    string? LegalName = null,
-    string? TaxId = null,
-    string? Email = null,
-    string? Phone = null,
-    string? Website = null,
-    decimal? CreditLimit = null,
-    int? PaymentTerms = null);
+        if (string.IsNullOrWhiteSpace(paymentTerms))
+            return Result.Failure("Payment terms cannot be empty");
 
-public record UpdateSupplierBasicInfoRequest(
-    string Name,
-    string? LegalName = null,
-    string? TaxId = null,
-    string? Email = null,
-    string? Phone = null,
-    string? Website = null);
+        State.PaymentTerms = paymentTerms;
 
-public record AddSupplierAddressRequest(
-    string Type,
-    string Street,
-    string City,
-    string State,
-    string PostalCode,
-    string Country);
+        await WriteStateAsync();
+        return Result.Success();
+    }
 
-public record AddSupplierContactRequest(
-    string Name,
-    string? Title = null,
-    string? Email = null,
-    string? Phone = null,
-    bool IsPrimary = false);
+    public Task<Result<List<SupplierDocument>>> GetDocumentsAsync()
+    {
+        if (State.Id == Guid.Empty)
+            return Task.FromResult(Result<List<SupplierDocument>>.Failure("Supplier not found"));
 
-public record AddSupplierCertificationRequest(
-    string Name,
-    string? IssuedBy = null,
-    DateTime IssuedDate = default,
-    DateTime? ExpiryDate = null);
+        return Task.FromResult(Result<List<SupplierDocument>>.Success(State.Documents));
+    }
 
-public record UpdatePerformanceMetricRequest(
-    string MetricName,
-    decimal Value,
-    DateTime PeriodStart,
-    DateTime PeriodEnd);
+    public async Task<Result> AddDocumentAsync(SupplierDocument document)
+    {
+        if (State.Id == Guid.Empty)
+            return Result.Failure("Supplier not found");
 
-public record SupplierPerformanceReport
-{
-    public Guid SupplierId { get; init; }
-    public string SupplierNumber { get; init; }
-    public string Name { get; init; }
-    public SupplierRating Rating { get; init; }
-    public decimal AveragePerformanceScore { get; init; }
-    public decimal CurrentBalance { get; init; }
-    public decimal CreditLimit { get; init; }
-    public int PaymentTerms { get; init; }
-    public DateTime? LastOrderDate { get; init; }
-    public DateTime? LastPaymentDate { get; init; }
-    public bool IsPreferred { get; init; }
-    public SupplierStatus Status { get; init; }
-    public int CertificationCount { get; init; }
-    public int ActiveCertifications { get; init; }
-    public int ExpiringSoonCertifications { get; init; }
-    public List<PerformanceMetricSummary> PerformanceMetrics { get; init; } = new();
-}
+        if (string.IsNullOrWhiteSpace(document.Name))
+            return Result.Failure("Document name is required");
 
-public record PerformanceMetricSummary
-{
-    public string MetricName { get; init; }
-    public decimal Value { get; init; }
-    public DateTime PeriodStart { get; init; }
-    public DateTime PeriodEnd { get; init; }
-    public DateTime RecordedAt { get; init; }
+        if (string.IsNullOrWhiteSpace(document.FileUrl))
+            return Result.Failure("Document file URL is required");
+
+        document.Id = Guid.NewGuid();
+        document.UploadedAt = DateTime.UtcNow;
+        State.Documents.Add(document);
+
+        await WriteStateAsync();
+        return Result.Success();
+    }
 }

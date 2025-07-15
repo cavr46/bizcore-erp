@@ -1,139 +1,245 @@
 @page "/"
 @using MudBlazor
+@using BizCore.Web.Services
 
 <PageTitle>Dashboard - BizCore ERP</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
-    <MudText Typo="Typo.h3" GutterBottom="true">Dashboard</MudText>
-    <MudText Typo="Typo.body1" Class="mb-4">Welcome to BizCore ERP - Your Complete Business Management Solution</MudText>
+<MudText Typo="Typo.h3" GutterBottom="true">Dashboard</MudText>
+<MudText Class="mb-8">Welcome to BizCore ERP - Your modern business management solution</MudText>
 
-    <MudGrid>
-        <!-- Key Metrics Cards -->
-        <MudItem xs="12" sm="6" md="3">
-            <MudCard Elevation="2" Class="pa-4">
-                <MudCardContent>
-                    <div class="d-flex align-center">
-                        <MudIcon Icon="Icons.Material.Filled.AttachMoney" Color="Color.Success" Size="Size.Large" />
-                        <div class="ml-4">
-                            <MudText Typo="Typo.subtitle2" Color="Color.Success">Total Revenue</MudText>
-                            <MudText Typo="Typo.h5">$125,450</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Success">+12.5% from last month</MudText>
-                        </div>
+<MudGrid>
+    <!-- Key Performance Indicators -->
+    <MudItem xs="12" sm="6" md="3">
+        <MudCard>
+            <MudCardContent>
+                <div class="d-flex align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Color="Color.Success" Size="Size.Large" />
+                    <div class="ml-4">
+                        <MudText Typo="Typo.h6">$125,430</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.TextSecondary">Monthly Revenue</MudText>
                     </div>
-                </MudCardContent>
-            </MudCard>
-        </MudItem>
-
-        <MudItem xs="12" sm="6" md="3">
-            <MudCard Elevation="2" Class="pa-4">
-                <MudCardContent>
-                    <div class="d-flex align-center">
-                        <MudIcon Icon="Icons.Material.Filled.ShoppingCart" Color="Color.Primary" Size="Size.Large" />
-                        <div class="ml-4">
-                            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Sales Orders</MudText>
-                            <MudText Typo="Typo.h5">234</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Primary">+8.3% from last month</MudText>
-                        </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="3">
+        <MudCard>
+            <MudCardContent>
+                <div class="d-flex align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.ShoppingCart" Color="Color.Primary" Size="Size.Large" />
+                    <div class="ml-4">
+                        <MudText Typo="Typo.h6">1,234</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.TextSecondary">Total Orders</MudText>
                     </div>
-                </MudCardContent>
-            </MudCard>
-        </MudItem>
-
-        <MudItem xs="12" sm="6" md="3">
-            <MudCard Elevation="2" Class="pa-4">
-                <MudCardContent>
-                    <div class="d-flex align-center">
-                        <MudIcon Icon="Icons.Material.Filled.Inventory" Color="Color.Warning" Size="Size.Large" />
-                        <div class="ml-4">
-                            <MudText Typo="Typo.subtitle2" Color="Color.Warning">Low Stock Items</MudText>
-                            <MudText Typo="Typo.h5">12</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Warning">Requires attention</MudText>
-                        </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="3">
+        <MudCard>
+            <MudCardContent>
+                <div class="d-flex align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Info" Size="Size.Large" />
+                    <div class="ml-4">
+                        <MudText Typo="Typo.h6">567</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.TextSecondary">Active Customers</MudText>
                     </div>
-                </MudCardContent>
-            </MudCard>
-        </MudItem>
-
-        <MudItem xs="12" sm="6" md="3">
-            <MudCard Elevation="2" Class="pa-4">
-                <MudCardContent>
-                    <div class="d-flex align-center">
-                        <MudIcon Icon="Icons.Material.Filled.People" Color="Color.Info" Size="Size.Large" />
-                        <div class="ml-4">
-                            <MudText Typo="Typo.subtitle2" Color="Color.Info">Active Customers</MudText>
-                            <MudText Typo="Typo.h5">1,245</MudText>
-                            <MudText Typo="Typo.caption" Color="Color.Info">+15 new this month</MudText>
-                        </div>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    
+    <MudItem xs="12" sm="6" md="3">
+        <MudCard>
+            <MudCardContent>
+                <div class="d-flex align-center">
+                    <MudIcon Icon="@Icons.Material.Filled.Inventory" Color="Color.Warning" Size="Size.Large" />
+                    <div class="ml-4">
+                        <MudText Typo="Typo.h6">89</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.TextSecondary">Low Stock Items</MudText>
                     </div>
-                </MudCardContent>
-            </MudCard>
-        </MudItem>
+                </div>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
 
-        <!-- Recent Activities -->
-        <MudItem xs="12" md="8">
-            <MudPaper Elevation="2" Class="pa-4">
-                <MudText Typo="Typo.h6" GutterBottom="true">Recent Activities</MudText>
-                <MudTimeline TimelineOrientation="TimelineOrientation.Vertical" TimelinePosition="TimelinePosition.Start">
-                    <MudTimelineItem Color="Color.Success" Size="Size.Small">
-                        <ItemContent>
-                            <MudText Typo="Typo.body2" Color="Color.Success">Sales Order #SO-2024-001 created</MudText>
-                            <MudText Typo="Typo.caption">2 hours ago</MudText>
-                        </ItemContent>
-                    </MudTimelineItem>
-                    <MudTimelineItem Color="Color.Info" Size="Size.Small">
-                        <ItemContent>
-                            <MudText Typo="Typo.body2" Color="Color.Info">New customer registration: ABC Corp</MudText>
-                            <MudText Typo="Typo.caption">4 hours ago</MudText>
-                        </ItemContent>
-                    </MudTimelineItem>
-                    <MudTimelineItem Color="Color.Warning" Size="Size.Small">
-                        <ItemContent>
-                            <MudText Typo="Typo.body2" Color="Color.Warning">Low stock alert: Product XYZ</MudText>
-                            <MudText Typo="Typo.caption">6 hours ago</MudText>
-                        </ItemContent>
-                    </MudTimelineItem>
-                    <MudTimelineItem Color="Color.Primary" Size="Size.Small">
-                        <ItemContent>
-                            <MudText Typo="Typo.body2" Color="Color.Primary">Journal Entry #JE-2024-0001 posted</MudText>
-                            <MudText Typo="Typo.caption">8 hours ago</MudText>
-                        </ItemContent>
-                    </MudTimelineItem>
-                </MudTimeline>
-            </MudPaper>
-        </MudItem>
-
-        <!-- Quick Actions -->
-        <MudItem xs="12" md="4">
-            <MudPaper Elevation="2" Class="pa-4">
-                <MudText Typo="Typo.h6" GutterBottom="true">Quick Actions</MudText>
-                <MudStack Spacing="2">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="Icons.Material.Filled.Add" FullWidth="true">
-                        New Sales Order
+<MudGrid Class="mt-4">
+    <!-- Recent Orders -->
+    <MudItem xs="12" md="8">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Recent Orders</MudText>
+                </CardHeaderContent>
+                <CardHeaderActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/sales/orders">
+                        View All
                     </MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="Icons.Material.Filled.Add" FullWidth="true">
-                        New Customer
+                </CardHeaderActions>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudTable Items="@_recentOrders" Dense="@true" Hover="@true">
+                    <HeaderContent>
+                        <MudTh>Order #</MudTh>
+                        <MudTh>Customer</MudTh>
+                        <MudTh>Amount</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Date</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Order #">@context.OrderNumber</MudTd>
+                        <MudTd DataLabel="Customer">@context.CustomerName</MudTd>
+                        <MudTd DataLabel="Amount">@context.Amount.ToString("C")</MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip Color="@GetStatusColor(context.Status)" Size="Size.Small">
+                                @context.Status
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Date">@context.Date.ToString("MMM dd, yyyy")</MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    
+    <!-- Quick Actions -->
+    <MudItem xs="12" md="4">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Quick Actions</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudStack>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" 
+                               StartIcon="@Icons.Material.Filled.Add" 
+                               FullWidth="true"
+                               Href="/sales/orders/create">
+                        Create Sales Order
                     </MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="Icons.Material.Filled.Add" FullWidth="true">
-                        New Product
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" 
+                               StartIcon="@Icons.Material.Filled.Receipt" 
+                               FullWidth="true"
+                               Href="/purchasing/orders/create">
+                        Create Purchase Order
                     </MudButton>
-                    <MudButton Variant="Variant.Filled" Color="Color.Info" StartIcon="Icons.Material.Filled.Book" FullWidth="true">
-                        Journal Entry
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" 
+                               StartIcon="@Icons.Material.Filled.Assignment" 
+                               FullWidth="true"
+                               Href="/accounting/journal-entries/create">
+                        Create Journal Entry
                     </MudButton>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Dark" StartIcon="Icons.Material.Filled.Assessment" FullWidth="true">
-                        View Reports
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" 
+                               StartIcon="@Icons.Material.Filled.Category" 
+                               FullWidth="true"
+                               Href="/inventory/products/create">
+                        Add Product
                     </MudButton>
                 </MudStack>
-            </MudPaper>
-        </MudItem>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
 
-        <!-- Charts Section -->
-        <MudItem xs="12">
-            <MudPaper Elevation="2" Class="pa-4">
-                <MudText Typo="Typo.h6" GutterBottom="true">Sales Trend (Last 6 Months)</MudText>
-                <div style="height: 300px; display: flex; align-items: center; justify-content: center; background: linear-gradient(45deg, #f5f5f5, #e0e0e0);">
-                    <MudText Typo="Typo.h6" Color="Color.Secondary">Chart Component Placeholder</MudText>
-                </div>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
-</MudContainer>
+<MudGrid Class="mt-4">
+    <!-- Pending Tasks -->
+    <MudItem xs="12" md="6">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Pending Tasks</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudList>
+                    <MudListItem Icon="@Icons.Material.Filled.Assignment" 
+                                 Text="3 Orders awaiting approval" 
+                                 SecondaryText="Sales" />
+                    <MudListItem Icon="@Icons.Material.Filled.Payment" 
+                                 Text="5 Invoices overdue" 
+                                 SecondaryText="Accounting" />
+                    <MudListItem Icon="@Icons.Material.Filled.Inventory" 
+                                 Text="12 Items need reordering" 
+                                 SecondaryText="Inventory" />
+                    <MudListItem Icon="@Icons.Material.Filled.Event" 
+                                 Text="2 Leave requests pending" 
+                                 SecondaryText="HR" />
+                </MudList>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    
+    <!-- System Status -->
+    <MudItem xs="12" md="6">
+        <MudCard>
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">System Status</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+                <MudStack>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Color="Color.Success" Size="Size.Small" />
+                        <MudText Class="ml-2">All systems operational</MudText>
+                    </div>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Color="Color.Success" Size="Size.Small" />
+                        <MudText Class="ml-2">Database: Healthy</MudText>
+                    </div>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Color="Color.Success" Size="Size.Small" />
+                        <MudText Class="ml-2">API Gateway: Online</MudText>
+                    </div>
+                    <div class="d-flex align-center">
+                        <MudIcon Icon="@Icons.Material.Filled.Circle" Color="Color.Warning" Size="Size.Small" />
+                        <MudText Class="ml-2">Email Service: Degraded</MudText>
+                    </div>
+                </MudStack>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<RecentOrder> _recentOrders = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Simulate loading recent orders
+        _recentOrders = new List<RecentOrder>
+        {
+            new() { OrderNumber = "SO-2024-001", CustomerName = "ACME Corp", Amount = 2500.00m, Status = "Pending", Date = DateTime.Now.AddDays(-1) },
+            new() { OrderNumber = "SO-2024-002", CustomerName = "Tech Solutions", Amount = 1800.00m, Status = "Shipped", Date = DateTime.Now.AddDays(-2) },
+            new() { OrderNumber = "SO-2024-003", CustomerName = "Global Industries", Amount = 3200.00m, Status = "Delivered", Date = DateTime.Now.AddDays(-3) },
+            new() { OrderNumber = "SO-2024-004", CustomerName = "StartUp Inc", Amount = 950.00m, Status = "Processing", Date = DateTime.Now.AddDays(-4) },
+            new() { OrderNumber = "SO-2024-005", CustomerName = "Enterprise Ltd", Amount = 4500.00m, Status = "Approved", Date = DateTime.Now.AddDays(-5) }
+        };
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "Pending" => Color.Warning,
+            "Approved" => Color.Info,
+            "Processing" => Color.Primary,
+            "Shipped" => Color.Secondary,
+            "Delivered" => Color.Success,
+            _ => Color.Default
+        };
+    }
+
+    private class RecentOrder
+    {
+        public string OrderNumber { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public DateTime Date { get; set; }
+    }
+}

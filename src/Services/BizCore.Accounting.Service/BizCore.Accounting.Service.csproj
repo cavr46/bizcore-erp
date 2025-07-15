@@ -19,7 +19,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Shared\BizCore.Orleans.Core\BizCore.Orleans.Core.csproj" />
+    <ProjectReference Include="..\..\Shared\BizCore.Domain\BizCore.Domain.csproj" />
+    <ProjectReference Include="..\..\Shared\BizCore.Application\BizCore.Application.csproj" />
     <ProjectReference Include="..\..\Shared\BizCore.Infrastructure\BizCore.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Shared\BizCore.Orleans.Contracts\BizCore.Orleans.Contracts.csproj" />
+    <ProjectReference Include="..\..\Shared\BizCore.Orleans.Core\BizCore.Orleans.Core.csproj" />
   </ItemGroup>
 </Project>
