@@ -1,0 +1,562 @@
+@using BizCore.Identity
+@using BizCore.Identity.Models
+@using BizCore.Localization
+@using MudBlazor
+@inject IIdentityService IdentityService
+@inject ILocalizationService LocalizationService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<MudCard Class="ma-auto" Style="max-width: 500px;">
+    <MudCardContent>
+        <div class="d-flex justify-center mb-4">
+            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Size="Size.Large" Color="Color.Primary" />
+        </div>
+        
+        <MudText Typo="Typo.h5" Align="Align.Center" Class="mb-4">
+            @LocalizationService.GetString("Register.Title", "Create Account")
+        </MudText>
+
+        <MudStepper @ref="_stepper" Color="Color.Primary" Variant="Variant.Filled">
+            <!-- Step 1: Account Information -->
+            <MudStep Title="@LocalizationService.GetString("Register.AccountInfo", "Account Information")">
+                <MudForm @ref="_accountForm" @bind-IsValid="@_isAccountFormValid">
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_registerModel.FirstName"
+                                         For="@(() => _registerModel.FirstName)"
+                                         Label="@LocalizationService.GetString("Register.FirstName", "First Name")"
+                                         Variant="Variant.Outlined"
+                                         Required="true"
+                                         Disabled="@_isLoading"
+                                         Class="mb-3" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_registerModel.LastName"
+                                         For="@(() => _registerModel.LastName)"
+                                         Label="@LocalizationService.GetString("Register.LastName", "Last Name")"
+                                         Variant="Variant.Outlined"
+                                         Required="true"
+                                         Disabled="@_isLoading"
+                                         Class="mb-3" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_registerModel.Email"
+                                         For="@(() => _registerModel.Email)"
+                                         Label="@LocalizationService.GetString("Register.Email", "Email")"
+                                         Variant="Variant.Outlined"
+                                         InputType="InputType.Email"
+                                         Required="true"
+                                         Disabled="@_isLoading"
+                                         Class="mb-3"
+                                         Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.Email" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_registerModel.Password"
+                                         For="@(() => _registerModel.Password)"
+                                         Label="@LocalizationService.GetString("Register.Password", "Password")"
+                                         Variant="Variant.Outlined"
+                                         InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                         Required="true"
+                                         Disabled="@_isLoading"
+                                         Class="mb-3"
+                                         Adornment="Adornment.End"
+                                         AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                                         OnAdornmentClick="TogglePasswordVisibility" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_registerModel.ConfirmPassword"
+                                         For="@(() => _registerModel.ConfirmPassword)"
+                                         Label="@LocalizationService.GetString("Register.ConfirmPassword", "Confirm Password")"
+                                         Variant="Variant.Outlined"
+                                         InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                         Required="true"
+                                         Disabled="@_isLoading"
+                                         Class="mb-3"
+                                         Validation="@(new Func<string, string>(ValidateConfirmPassword))" />
+                        </MudItem>
+                    </MudGrid>
+                    
+                    <!-- Password Strength Indicator -->
+                    <div class="mb-3">
+                        <MudText Typo="Typo.caption" Class="mb-2">
+                            @LocalizationService.GetString("Register.PasswordStrength", "Password Strength")
+                        </MudText>
+                        <MudLinearProgress Value="@_passwordStrengthPercent" 
+                                         Color="@_passwordStrengthColor" 
+                                         Size="Size.Small" 
+                                         Class="mb-2" />
+                        <MudText Typo="Typo.caption" Color="@_passwordStrengthColor">
+                            @_passwordStrengthText
+                        </MudText>
+                    </div>
+
+                    <div class="d-flex justify-end">
+                        <MudButton Variant="Variant.Filled" 
+                                  Color="Color.Primary" 
+                                  OnClick="NextStep"
+                                  Disabled="@(!_isAccountFormValid || _isLoading)">
+                            @LocalizationService.GetString("Common.Next", "Next")
+                        </MudButton>
+                    </div>
+                </MudForm>
+            </MudStep>
+
+            <!-- Step 2: Company Information -->
+            <MudStep Title="@LocalizationService.GetString("Register.CompanyInfo", "Company Information")">
+                <MudForm @ref="_companyForm" @bind-IsValid="@_isCompanyFormValid">
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_registerModel.CompanyName"
+                                         For="@(() => _registerModel.CompanyName)"
+                                         Label="@LocalizationService.GetString("Register.CompanyName", "Company Name")"
+                                         Variant="Variant.Outlined"
+                                         Required="true"
+                                         Disabled="@_isLoading"
+                                         Class="mb-3" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_registerModel.CompanyDomain"
+                                         For="@(() => _registerModel.CompanyDomain)"
+                                         Label="@LocalizationService.GetString("Register.CompanyDomain", "Company Domain")"
+                                         Variant="Variant.Outlined"
+                                         Required="true"
+                                         Disabled="@_isLoading"
+                                         Class="mb-3"
+                                         HelperText="@LocalizationService.GetString("Register.DomainHelp", "This will be used for your company's unique URL")"
+                                         Adornment="Adornment.Start"
+                                         AdornmentText="https://"
+                                         Validation="@(new Func<string, string>(ValidateDomain))" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudSelect @bind-Value="_registerModel.Industry"
+                                      Label="@LocalizationService.GetString("Register.Industry", "Industry")"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      Disabled="@_isLoading"
+                                      Class="mb-3">
+                                @foreach (var industry in _industries)
+                                {
+                                    <MudSelectItem Value="@industry.Key">@industry.Value</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSelect @bind-Value="_registerModel.CompanySize"
+                                      Label="@LocalizationService.GetString("Register.CompanySize", "Company Size")"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      Disabled="@_isLoading"
+                                      Class="mb-3">
+                                @foreach (var size in _companySizes)
+                                {
+                                    <MudSelectItem Value="@size.Key">@size.Value</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudSelect @bind-Value="_registerModel.Country"
+                                      Label="@LocalizationService.GetString("Register.Country", "Country")"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      Disabled="@_isLoading"
+                                      Class="mb-3">
+                                @foreach (var country in _countries)
+                                {
+                                    <MudSelectItem Value="@country.Key">@country.Value</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </MudGrid>
+
+                    <div class="d-flex justify-space-between">
+                        <MudButton Variant="Variant.Outlined" 
+                                  OnClick="PrevStep"
+                                  Disabled="@_isLoading">
+                            @LocalizationService.GetString("Common.Previous", "Previous")
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" 
+                                  Color="Color.Primary" 
+                                  OnClick="NextStep"
+                                  Disabled="@(!_isCompanyFormValid || _isLoading)">
+                            @LocalizationService.GetString("Common.Next", "Next")
+                        </MudButton>
+                    </div>
+                </MudForm>
+            </MudStep>
+
+            <!-- Step 3: Terms and Confirmation -->
+            <MudStep Title="@LocalizationService.GetString("Register.Confirmation", "Confirmation")">
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.h6" Class="mb-3">
+                            @LocalizationService.GetString("Register.ReviewInfo", "Review Your Information")
+                        </MudText>
+                        
+                        <MudCard Outlined="true" Class="mb-4">
+                            <MudCardContent>
+                                <MudText><strong>@LocalizationService.GetString("Register.Name", "Name"):</strong> @_registerModel.FirstName @_registerModel.LastName</MudText>
+                                <MudText><strong>@LocalizationService.GetString("Register.Email", "Email"):</strong> @_registerModel.Email</MudText>
+                                <MudText><strong>@LocalizationService.GetString("Register.CompanyName", "Company"):</strong> @_registerModel.CompanyName</MudText>
+                                <MudText><strong>@LocalizationService.GetString("Register.CompanyDomain", "Domain"):</strong> @_registerModel.CompanyDomain</MudText>
+                                <MudText><strong>@LocalizationService.GetString("Register.Industry", "Industry"):</strong> @(_industries.GetValueOrDefault(_registerModel.Industry, _registerModel.Industry))</MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudCheckBox @bind-Checked="_registerModel.AcceptTerms"
+                                    Required="true"
+                                    Class="mb-3">
+                            @LocalizationService.GetString("Register.AcceptTerms", "I agree to the")
+                            <MudLink Href="/terms" Target="_blank" Class="ml-1">
+                                @LocalizationService.GetString("Register.TermsOfService", "Terms of Service")
+                            </MudLink>
+                            @LocalizationService.GetString("Common.And", "and")
+                            <MudLink Href="/privacy" Target="_blank" Class="ml-1">
+                                @LocalizationService.GetString("Register.PrivacyPolicy", "Privacy Policy")
+                            </MudLink>
+                        </MudCheckBox>
+                    </MudItem>
+                    
+                    <MudItem xs="12">
+                        <MudCheckBox @bind-Checked="_registerModel.AcceptMarketing"
+                                    Class="mb-3">
+                            @LocalizationService.GetString("Register.AcceptMarketing", "I would like to receive product updates and marketing communications")
+                        </MudCheckBox>
+                    </MudItem>
+                </MudGrid>
+
+                <div class="d-flex justify-space-between">
+                    <MudButton Variant="Variant.Outlined" 
+                              OnClick="PrevStep"
+                              Disabled="@_isLoading">
+                        @LocalizationService.GetString("Common.Previous", "Previous")
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" 
+                              Color="Color.Primary" 
+                              OnClick="HandleRegister"
+                              Disabled="@(!_registerModel.AcceptTerms || _isLoading)">
+                        @if (_isLoading)
+                        {
+                            <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                            <MudText Class="ms-2">@LocalizationService.GetString("Register.Creating", "Creating Account...")</MudText>
+                        }
+                        else
+                        {
+                            @LocalizationService.GetString("Register.CreateAccount", "Create Account")
+                        }
+                    </MudButton>
+                </div>
+            </MudStep>
+        </MudStepper>
+
+        <MudDivider Class="my-4" />
+        
+        <div class="d-flex justify-center">
+            <MudText Typo="Typo.body2">
+                @LocalizationService.GetString("Register.AlreadyHaveAccount", "Already have an account?")
+                <MudLink Href="/login" Class="ml-1">
+                    @LocalizationService.GetString("Register.SignIn", "Sign In")
+                </MudLink>
+            </MudText>
+        </div>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private MudStepper _stepper;
+    private MudForm _accountForm;
+    private MudForm _companyForm;
+    private bool _isAccountFormValid;
+    private bool _isCompanyFormValid;
+    private bool _isLoading = false;
+    private bool _showPassword = false;
+    private double _passwordStrengthPercent = 0;
+    private Color _passwordStrengthColor = Color.Error;
+    private string _passwordStrengthText = "";
+
+    private RegisterModel _registerModel = new();
+
+    private Dictionary<string, string> _industries = new()
+    {
+        { "retail", "Retail" },
+        { "manufacturing", "Manufacturing" },
+        { "healthcare", "Healthcare" },
+        { "technology", "Technology" },
+        { "finance", "Finance" },
+        { "education", "Education" },
+        { "agriculture", "Agriculture" },
+        { "construction", "Construction" },
+        { "hospitality", "Hospitality" },
+        { "other", "Other" }
+    };
+
+    private Dictionary<string, string> _companySizes = new()
+    {
+        { "1-10", "1-10 employees" },
+        { "11-50", "11-50 employees" },
+        { "51-200", "51-200 employees" },
+        { "201-500", "201-500 employees" },
+        { "501-1000", "501-1000 employees" },
+        { "1000+", "1000+ employees" }
+    };
+
+    private Dictionary<string, string> _countries = new()
+    {
+        { "US", "United States" },
+        { "CA", "Canada" },
+        { "MX", "Mexico" },
+        { "BR", "Brazil" },
+        { "AR", "Argentina" },
+        { "ES", "Spain" },
+        { "FR", "France" },
+        { "DE", "Germany" },
+        { "IT", "Italy" },
+        { "GB", "United Kingdom" }
+    };
+
+    protected override void OnInitialized()
+    {
+        _registerModel.PropertyChanged += OnPasswordChanged;
+    }
+
+    private void OnPasswordChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(RegisterModel.Password))
+        {
+            CalculatePasswordStrength();
+        }
+    }
+
+    private void CalculatePasswordStrength()
+    {
+        var password = _registerModel.Password ?? "";
+        var strength = 0;
+        var feedback = new List<string>();
+
+        if (password.Length >= 8)
+        {
+            strength += 20;
+        }
+        else
+        {
+            feedback.Add("At least 8 characters");
+        }
+
+        if (password.Any(char.IsUpper))
+        {
+            strength += 20;
+        }
+        else
+        {
+            feedback.Add("Uppercase letter");
+        }
+
+        if (password.Any(char.IsLower))
+        {
+            strength += 20;
+        }
+        else
+        {
+            feedback.Add("Lowercase letter");
+        }
+
+        if (password.Any(char.IsDigit))
+        {
+            strength += 20;
+        }
+        else
+        {
+            feedback.Add("Number");
+        }
+
+        if (password.Any(c => !char.IsLetterOrDigit(c)))
+        {
+            strength += 20;
+        }
+        else
+        {
+            feedback.Add("Special character");
+        }
+
+        _passwordStrengthPercent = strength;
+        _passwordStrengthColor = strength switch
+        {
+            < 40 => Color.Error,
+            < 60 => Color.Warning,
+            < 80 => Color.Info,
+            _ => Color.Success
+        };
+
+        _passwordStrengthText = strength switch
+        {
+            < 40 => "Weak",
+            < 60 => "Fair",
+            < 80 => "Good",
+            _ => "Strong"
+        };
+
+        if (feedback.Any())
+        {
+            _passwordStrengthText += $" (Missing: {string.Join(", ", feedback)})";
+        }
+    }
+
+    private string ValidateConfirmPassword(string confirmPassword)
+    {
+        if (confirmPassword != _registerModel.Password)
+        {
+            return LocalizationService.GetString("Validation.PasswordMismatch", "Passwords do not match");
+        }
+        return null;
+    }
+
+    private string ValidateDomain(string domain)
+    {
+        if (string.IsNullOrEmpty(domain))
+        {
+            return LocalizationService.GetString("Validation.Required", "This field is required");
+        }
+
+        if (domain.Length < 3)
+        {
+            return LocalizationService.GetString("Validation.DomainTooShort", "Domain must be at least 3 characters");
+        }
+
+        if (!System.Text.RegularExpressions.Regex.IsMatch(domain, @"^[a-zA-Z0-9-]+$"))
+        {
+            return LocalizationService.GetString("Validation.DomainInvalid", "Domain can only contain letters, numbers, and hyphens");
+        }
+
+        return null;
+    }
+
+    private void NextStep()
+    {
+        _stepper.ForceNext();
+    }
+
+    private void PrevStep()
+    {
+        _stepper.ForcePrevious();
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    private async Task HandleRegister()
+    {
+        if (!_registerModel.AcceptTerms) return;
+
+        _isLoading = true;
+        try
+        {
+            // First create the tenant
+            var createTenantRequest = new CreateTenantRequest
+            {
+                Name = _registerModel.CompanyName,
+                Domain = _registerModel.CompanyDomain,
+                AdminEmail = _registerModel.Email,
+                AdminPassword = _registerModel.Password,
+                MaxUsers = GetMaxUsersForCompanySize(_registerModel.CompanySize),
+                StorageQuotaGB = GetStorageQuotaForCompanySize(_registerModel.CompanySize),
+                Features = GetFeaturesForIndustry(_registerModel.Industry)
+            };
+
+            var tenantResult = await IdentityService.CreateTenantAsync(createTenantRequest);
+            
+            if (tenantResult.IsSuccess)
+            {
+                Snackbar.Add(LocalizationService.GetString("Register.Success", "Account created successfully! Please check your email for verification."), Severity.Success);
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                Snackbar.Add(tenantResult.ErrorMessage ?? LocalizationService.GetString("Register.Failed", "Registration failed"), Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(LocalizationService.GetString("Error.Unexpected", "An unexpected error occurred"), Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private int GetMaxUsersForCompanySize(string companySize)
+    {
+        return companySize switch
+        {
+            "1-10" => 10,
+            "11-50" => 50,
+            "51-200" => 200,
+            "201-500" => 500,
+            "501-1000" => 1000,
+            "1000+" => 5000,
+            _ => 10
+        };
+    }
+
+    private int GetStorageQuotaForCompanySize(string companySize)
+    {
+        return companySize switch
+        {
+            "1-10" => 5,
+            "11-50" => 25,
+            "51-200" => 100,
+            "201-500" => 500,
+            "501-1000" => 1000,
+            "1000+" => 5000,
+            _ => 5
+        };
+    }
+
+    private string[] GetFeaturesForIndustry(string industry)
+    {
+        return industry switch
+        {
+            "retail" => new[] { "Inventory", "POS", "Ecommerce" },
+            "manufacturing" => new[] { "Production", "Inventory", "Quality" },
+            "healthcare" => new[] { "Patient", "Billing", "Compliance" },
+            "technology" => new[] { "Projects", "Time", "Billing" },
+            "finance" => new[] { "Accounting", "Compliance", "Reporting" },
+            _ => new[] { "Accounting", "CRM", "Reporting" }
+        };
+    }
+
+    private class RegisterModel : System.ComponentModel.INotifyPropertyChanged
+    {
+        private string _password = string.Empty;
+        
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        
+        public string Password
+        {
+            get => _password;
+            set
+            {
+                _password = value;
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(Password)));
+            }
+        }
+        
+        public string ConfirmPassword { get; set; } = string.Empty;
+        public string CompanyName { get; set; } = string.Empty;
+        public string CompanyDomain { get; set; } = string.Empty;
+        public string Industry { get; set; } = string.Empty;
+        public string CompanySize { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+        public bool AcceptTerms { get; set; }
+        public bool AcceptMarketing { get; set; }
+
+        public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
+    }
+}

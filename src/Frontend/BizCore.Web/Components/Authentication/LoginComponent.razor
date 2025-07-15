@@ -1,0 +1,339 @@
+@using BizCore.Identity
+@using BizCore.Identity.Models
+@using BizCore.Localization
+@using MudBlazor
+@inject IIdentityService IdentityService
+@inject ILocalizationService LocalizationService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<MudCard Class="ma-auto" Style="max-width: 400px;">
+    <MudCardContent>
+        <div class="d-flex justify-center mb-4">
+            <MudIcon Icon="@Icons.Material.Filled.BusinessCenter" Size="Size.Large" Color="Color.Primary" />
+        </div>
+        
+        <MudText Typo="Typo.h5" Align="Align.Center" Class="mb-4">
+            @LocalizationService.GetString("Login.Title", "Sign In")
+        </MudText>
+
+        <MudForm @ref="_form" @bind-IsValid="@_isFormValid" @bind-Errors="@_errors">
+            <MudTextField @bind-Value="_loginModel.Email"
+                         For="@(() => _loginModel.Email)"
+                         Label="@LocalizationService.GetString("Login.Email", "Email")"
+                         Variant="Variant.Outlined"
+                         InputType="InputType.Email"
+                         Required="true"
+                         Class="mb-3"
+                         Disabled="@_isLoading"
+                         Adornment="Adornment.Start"
+                         AdornmentIcon="@Icons.Material.Filled.Email" />
+
+            <MudTextField @bind-Value="_loginModel.Password"
+                         For="@(() => _loginModel.Password)"
+                         Label="@LocalizationService.GetString("Login.Password", "Password")"
+                         Variant="Variant.Outlined"
+                         InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                         Required="true"
+                         Class="mb-3"
+                         Disabled="@_isLoading"
+                         Adornment="Adornment.End"
+                         AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                         OnAdornmentClick="TogglePasswordVisibility" />
+
+            @if (_showTenantSelection)
+            {
+                <MudSelect @bind-Value="_loginModel.TenantId"
+                          Label="@LocalizationService.GetString("Login.Company", "Company")"
+                          Variant="Variant.Outlined"
+                          Class="mb-3"
+                          Disabled="@_isLoading"
+                          Required="true">
+                    @foreach (var tenant in _availableTenants)
+                    {
+                        <MudSelectItem Value="@tenant.Id">@tenant.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+
+            <MudCheckBox @bind-Checked="_loginModel.RememberMe"
+                        Label="@LocalizationService.GetString("Login.RememberMe", "Remember me")"
+                        Class="mb-3" />
+
+            <MudButton ButtonType="ButtonType.Submit"
+                      Variant="Variant.Filled"
+                      Color="Color.Primary"
+                      Size="Size.Large"
+                      FullWidth="true"
+                      Class="mb-3"
+                      OnClick="HandleLogin"
+                      Disabled="@(!_isFormValid || _isLoading)">
+                @if (_isLoading)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">@LocalizationService.GetString("Login.SigningIn", "Signing in...")</MudText>
+                }
+                else
+                {
+                    @LocalizationService.GetString("Login.SignIn", "Sign In")
+                }
+            </MudButton>
+        </MudForm>
+
+        @if (_showMfaChallenge)
+        {
+            <MudDivider Class="my-4" />
+            <MudText Typo="Typo.h6" Class="mb-3">
+                @LocalizationService.GetString("Login.MfaRequired", "Two-Factor Authentication")
+            </MudText>
+            <MudTextField @bind-Value="_mfaCode"
+                         Label="@LocalizationService.GetString("Login.MfaCode", "Authentication Code")"
+                         Variant="Variant.Outlined"
+                         InputType="InputType.Text"
+                         Class="mb-3"
+                         Disabled="@_isLoading"
+                         Adornment="Adornment.Start"
+                         AdornmentIcon="@Icons.Material.Filled.Security" />
+            <MudButton Variant="Variant.Filled"
+                      Color="Color.Primary"
+                      Size="Size.Large"
+                      FullWidth="true"
+                      OnClick="HandleMfaVerification"
+                      Disabled="@(string.IsNullOrEmpty(_mfaCode) || _isLoading)">
+                @LocalizationService.GetString("Login.Verify", "Verify")
+            </MudButton>
+        }
+
+        <MudDivider Class="my-4" />
+        
+        <div class="d-flex justify-space-between">
+            <MudLink Href="/forgot-password">
+                @LocalizationService.GetString("Login.ForgotPassword", "Forgot Password?")
+            </MudLink>
+            <MudLink Href="/register">
+                @LocalizationService.GetString("Login.SignUp", "Sign Up")
+            </MudLink>
+        </div>
+
+        @if (_showSsoOptions)
+        {
+            <MudDivider Class="my-4" />
+            <MudText Typo="Typo.subtitle2" Align="Align.Center" Class="mb-3">
+                @LocalizationService.GetString("Login.OrSignInWith", "Or sign in with")
+            </MudText>
+            <div class="d-flex justify-center gap-2">
+                <MudButton Variant="Variant.Outlined"
+                          StartIcon="@Icons.Custom.Brands.Google"
+                          OnClick="@(() => HandleSsoLogin("Google"))">
+                    Google
+                </MudButton>
+                <MudButton Variant="Variant.Outlined"
+                          StartIcon="@Icons.Custom.Brands.Microsoft"
+                          OnClick="@(() => HandleSsoLogin("Microsoft"))">
+                    Microsoft
+                </MudButton>
+            </div>
+        }
+    </MudCardContent>
+</MudCard>
+
+@code {
+    private MudForm _form;
+    private bool _isFormValid;
+    private string[] _errors = {};
+    private bool _isLoading = false;
+    private bool _showPassword = false;
+    private bool _showTenantSelection = false;
+    private bool _showMfaChallenge = false;
+    private bool _showSsoOptions = true;
+    private string _mfaCode = string.Empty;
+    private string _mfaToken = string.Empty;
+    private List<TenantInfo> _availableTenants = new();
+
+    private LoginModel _loginModel = new();
+
+    [Parameter] public EventCallback<string> OnLoginSuccess { get; set; }
+    [Parameter] public string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAvailableTenantsAsync();
+    }
+
+    private async Task LoadAvailableTenantsAsync()
+    {
+        try
+        {
+            var tenants = await IdentityService.GetTenantsAsync();
+            _availableTenants = tenants.Select(t => new TenantInfo 
+            { 
+                Id = t.Tenant.Id, 
+                Name = t.Tenant.Name 
+            }).ToList();
+            
+            if (_availableTenants.Count > 1)
+            {
+                _showTenantSelection = true;
+            }
+            else if (_availableTenants.Count == 1)
+            {
+                _loginModel.TenantId = _availableTenants[0].Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(LocalizationService.GetString("Error.LoadingTenants", "Failed to load companies"), Severity.Error);
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        if (!_isFormValid) return;
+
+        _isLoading = true;
+        try
+        {
+            await _form.Validate();
+            if (!_form.IsValid)
+            {
+                _isLoading = false;
+                return;
+            }
+
+            var result = await IdentityService.AuthenticateAsync(
+                _loginModel.Email, 
+                _loginModel.Password, 
+                _loginModel.TenantId);
+
+            if (result.IsSuccess)
+            {
+                // Store tokens
+                await StoreTokensAsync(result.AccessToken, result.RefreshToken);
+                
+                // Navigate to return URL or dashboard
+                var returnUrl = ReturnUrl ?? "/dashboard";
+                Navigation.NavigateTo(returnUrl);
+                
+                await OnLoginSuccess.InvokeAsync(result.AccessToken);
+                
+                Snackbar.Add(LocalizationService.GetString("Login.Success", "Login successful!"), Severity.Success);
+            }
+            else if (result.RequiresMfa)
+            {
+                _mfaToken = result.MfaToken;
+                _showMfaChallenge = true;
+                Snackbar.Add(LocalizationService.GetString("Login.MfaRequired", "Please enter your authentication code"), Severity.Info);
+            }
+            else
+            {
+                Snackbar.Add(result.ErrorMessage ?? LocalizationService.GetString("Login.Failed", "Login failed"), Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(LocalizationService.GetString("Error.Unexpected", "An unexpected error occurred"), Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleMfaVerification()
+    {
+        if (string.IsNullOrEmpty(_mfaCode)) return;
+
+        _isLoading = true;
+        try
+        {
+            // Extract user ID from MFA token (this would need proper implementation)
+            var userId = ExtractUserIdFromMfaToken(_mfaToken);
+            
+            var isValid = await IdentityService.ValidateMfaCodeAsync(userId, _mfaCode);
+            
+            if (isValid)
+            {
+                // Complete login after MFA verification
+                var result = await IdentityService.AuthenticateWithTokenAsync(_mfaToken);
+                
+                if (result.IsSuccess)
+                {
+                    await StoreTokensAsync(result.AccessToken, result.RefreshToken);
+                    
+                    var returnUrl = ReturnUrl ?? "/dashboard";
+                    Navigation.NavigateTo(returnUrl);
+                    
+                    await OnLoginSuccess.InvokeAsync(result.AccessToken);
+                    
+                    Snackbar.Add(LocalizationService.GetString("Login.Success", "Login successful!"), Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add(result.ErrorMessage ?? LocalizationService.GetString("Login.Failed", "Login failed"), Severity.Error);
+                }
+            }
+            else
+            {
+                Snackbar.Add(LocalizationService.GetString("Login.InvalidMfaCode", "Invalid authentication code"), Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(LocalizationService.GetString("Error.Unexpected", "An unexpected error occurred"), Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleSsoLogin(string provider)
+    {
+        try
+        {
+            var ssoUrl = await IdentityService.GenerateSsoUrlAsync(provider, _loginModel.TenantId, ReturnUrl ?? "/dashboard");
+            Navigation.NavigateTo(ssoUrl);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(LocalizationService.GetString("Error.SsoFailed", "SSO login failed"), Severity.Error);
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        _showPassword = !_showPassword;
+    }
+
+    private async Task StoreTokensAsync(string accessToken, string refreshToken)
+    {
+        // Store tokens in localStorage or httpOnly cookies
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "access_token", accessToken);
+        if (!string.IsNullOrEmpty(refreshToken))
+        {
+            await JSRuntime.InvokeVoidAsync("localStorage.setItem", "refresh_token", refreshToken);
+        }
+    }
+
+    private string ExtractUserIdFromMfaToken(string mfaToken)
+    {
+        // This would need proper JWT decoding implementation
+        // For now, return a placeholder
+        return "user-id-from-token";
+    }
+
+    private class LoginModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string? TenantId { get; set; }
+        public bool RememberMe { get; set; }
+    }
+
+    private class TenantInfo
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+}
